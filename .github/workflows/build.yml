@@ -42,7 +42,6 @@ jobs:
         echo "🔧 Generating Android project..."
         
         if [ -d "android" ]; then
-          echo "⚠️ Removing existing android directory..."
           rm -rf android
         fi
         
@@ -208,7 +207,7 @@ jobs:
           -keyalg RSA -keysize 2048 -validity 10000 \
           -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
         
-        echo "✅ Gradle 8.0 configured"
+        echo "✅ Gradle configured"
     
     - name: ⚙️ Configure AndroidManifest
       run: |
@@ -263,11 +262,14 @@ jobs:
         </manifest>
         EOF
     
-    - name: 🔧 Fix Plugin Issues
+    - name: 🔧 Fix ALL Plugin Namespaces (AGP 8.x)
       run: |
-        PLUGIN_PATH="$HOME/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0/android"
-        if [ -d "$PLUGIN_PATH" ]; then
-          cat > "$PLUGIN_PATH/build.gradle" << 'EOF'
+        echo "🔧 Fixing all plugins for AGP 8.x compatibility..."
+        
+        # Fix package_info_plus
+        for dir in "$HOME/.pub-cache/hosted/pub.dev"/package_info_plus-*; do
+            if [ -d "$dir/android" ]; then
+                cat > "$dir/android/build.gradle" << 'EOF'
         group 'dev.fluttercommunity.plus.packageinfo'
         version '1.0'
         
@@ -291,6 +293,7 @@ jobs:
         apply plugin: 'com.android.library'
         
         android {
+            namespace 'dev.fluttercommunity.plus.packageinfo'
             compileSdk 34
             
             compileOptions {
@@ -307,8 +310,60 @@ jobs:
             implementation 'androidx.annotation:annotation:1.7.0'
         }
         EOF
-          echo "✅ package_info_plus fixed"
-        fi
+                echo "  ✓ package_info_plus"
+            fi
+        done
+        
+        # Fix flutter_plugin_android_lifecycle
+        for dir in "$HOME/.pub-cache/hosted/pub.dev"/flutter_plugin_android_lifecycle-*; do
+            if [ -d "$dir/android" ]; then
+                cat > "$dir/android/build.gradle" << 'EOF'
+        group 'io.flutter.plugins'
+        version '1.0'
+        
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.1.0'
+            }
+        }
+        
+        rootProject.allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        
+        apply plugin: 'com.android.library'
+        
+        android {
+            namespace 'io.flutter.plugins.flutter_plugin_android_lifecycle'
+            compileSdk 34
+        
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        
+            defaultConfig {
+                minSdk 21
+            }
+        }
+        
+        dependencies {
+            implementation 'androidx.annotation:annotation:1.7.0'
+            implementation 'androidx.lifecycle:lifecycle-common:2.6.1'
+        }
+        EOF
+                echo "  ✓ flutter_plugin_android_lifecycle"
+            fi
+        done
+        
+        echo "✅ All plugins fixed"
     
     - name: 🧹 Clean Build
       run: |
