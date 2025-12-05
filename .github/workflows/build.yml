@@ -16,7 +16,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
     
-    - name: ☕ Setup Java
+    - name: ☕ Setup Java 17
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
@@ -50,20 +50,18 @@ jobs:
         
         echo "✅ Android project generated"
     
-    - name: ⚙️ Configure Gradle
+    - name: ⚙️ Configure Gradle 8.0
       run: |
-        echo "⚙️ Configuring Gradle..."
+        echo "⚙️ Configuring Gradle 8.0..."
         
-        # Gradle wrapper properties
         cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
         distributionBase=GRADLE_USER_HOME
         distributionPath=wrapper/dists
         zipStoreBase=GRADLE_USER_HOME
         zipStorePath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-7.6-all.zip
+        distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-all.zip
         EOF
         
-        # Gradle properties
         cat > android/gradle.properties << 'EOF'
         org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
         android.useAndroidX=true
@@ -73,7 +71,6 @@ jobs:
         org.gradle.caching=true
         EOF
         
-        # Root build.gradle
         cat > android/build.gradle << 'EOF'
         buildscript {
             ext.kotlin_version = '1.9.10'
@@ -82,7 +79,7 @@ jobs:
                 mavenCentral()
             }
             dependencies {
-                classpath 'com.android.tools.build:gradle:7.4.2'
+                classpath 'com.android.tools.build:gradle:8.1.0'
                 classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
             }
         }
@@ -107,7 +104,6 @@ jobs:
         }
         EOF
         
-        # App build.gradle
         cat > android/app/build.gradle << 'EOF'
         def localProperties = new Properties()
         def localPropertiesFile = rootProject.file('local.properties')
@@ -119,7 +115,7 @@ jobs:
         
         def flutterRoot = localProperties.getProperty('flutter.sdk')
         if (flutterRoot == null) {
-            throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+            throw new GradleException("Flutter SDK not found.")
         }
         
         def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
@@ -138,16 +134,16 @@ jobs:
         
         android {
             namespace "com.kotokely.kotokely_ai"
-            compileSdkVersion 34
+            compileSdk 34
             ndkVersion flutter.ndkVersion
         
             compileOptions {
-                sourceCompatibility JavaVersion.VERSION_1_8
-                targetCompatibility JavaVersion.VERSION_1_8
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
             }
         
             kotlinOptions {
-                jvmTarget = '1.8'
+                jvmTarget = '17'
             }
         
             sourceSets {
@@ -156,8 +152,8 @@ jobs:
         
             defaultConfig {
                 applicationId "com.kotokely.kotokely_ai"
-                minSdkVersion 21
-                targetSdkVersion 34
+                minSdk 21
+                targetSdk 34
                 versionCode flutterVersionCode.toInteger()
                 versionName flutterVersionName
                 multiDexEnabled true
@@ -181,7 +177,7 @@ jobs:
                 }
             }
         
-            lintOptions {
+            lint {
                 disable 'InvalidPackage'
                 checkReleaseBuilds false
             }
@@ -197,7 +193,6 @@ jobs:
         }
         EOF
         
-        # Proguard rules
         cat > android/app/proguard-rules.pro << 'EOF'
         -keep class io.flutter.app.** { *; }
         -keep class io.flutter.plugin.**  { *; }
@@ -208,13 +203,12 @@ jobs:
         -dontwarn io.flutter.embedding.**
         EOF
         
-        # Debug keystore
         keytool -genkey -v -keystore android/app/debug.keystore \
           -storepass android -alias androiddebugkey -keypass android \
           -keyalg RSA -keysize 2048 -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || echo "Keystore exists"
+          -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
         
-        echo "✅ Gradle configured"
+        echo "✅ Gradle 8.0 configured"
     
     - name: ⚙️ Configure AndroidManifest
       run: |
@@ -268,8 +262,6 @@ jobs:
             </queries>
         </manifest>
         EOF
-        
-        echo "✅ AndroidManifest configured"
     
     - name: 🔧 Fix Plugin Issues
       run: |
@@ -285,7 +277,7 @@ jobs:
                 mavenCentral()
             }
             dependencies {
-                classpath 'com.android.tools.build:gradle:7.3.0'
+                classpath 'com.android.tools.build:gradle:8.1.0'
             }
         }
         
@@ -299,15 +291,15 @@ jobs:
         apply plugin: 'com.android.library'
         
         android {
-            compileSdkVersion 34
+            compileSdk 34
             
             compileOptions {
-                sourceCompatibility JavaVersion.VERSION_1_8
-                targetCompatibility JavaVersion.VERSION_1_8
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
             }
         
             defaultConfig {
-                minSdkVersion 21
+                minSdk 21
             }
         }
         
