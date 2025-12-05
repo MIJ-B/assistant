@@ -210,7 +210,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _selectedImagePath;
   String? _selectedFilePath;
   
-  final String _supabaseUrl = 'https://your-project.supabase.co/functions/v1/kotokely-ai';
+  final String _supabaseUrl = 'https://zogohkfzplcuonkkfoov.supabase.co/functions/v1/kotokely-ai';
 
   @override
   void initState() {
