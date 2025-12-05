@@ -71,14 +71,14 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _selectedFilePath;
   AIMode _currentMode = AIMode.chat;
   
-  // Remplaza eto ny URL Supabase Edge Function-nao
+  // ⚠️ OVAO IO: Remplaza eto ny URL Supabase Edge Function-nao
   final String _supabaseUrl = 'https://your-project.supabase.co/functions/v1/kotokely-ai';
 
   @override
   void initState() {
     super.initState();
     _messages.add(Message(
-      text: '🦎 Salama! Izaho i Kotokely!\n\nAfaka:\n• Miresaka (Gemini)\n• Mamorona sary (Pollinations/Flux)\n• Mamorona video (Luma AI/Runway)\n\nInona no tianao hatao?',
+      text: '🦎 Salama! Izaho i Kotokely!\n\n💬 Chat - Gemini 2.0 Flash\n🎨 Image - Pollinations/Flux (FREE)\n🎬 Video - ModelScope (FREE)\n\nInona no tianao hatao?',
       isUser: false,
     ));
   }
@@ -146,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       setState(() {
         _messages.add(Message(
-          text: 'Nisy olana: $e',
+          text: '❌ Nisy olana: $e',
           isUser: false,
         ));
         _isLoading = false;
@@ -251,8 +251,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         fit: BoxFit.cover,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close, color: Colors.red),
                       onPressed: () => setState(() => _selectedImagePath = null),
                     ),
                   ],
@@ -266,7 +267,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close, color: Colors.red),
                       onPressed: () => setState(() => _selectedFilePath = null),
                     ),
                   ],
@@ -290,12 +291,12 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 if (_currentMode == AIMode.chat) ...[
                   IconButton(
-                    icon: const Icon(Icons.image),
+                    icon: const Icon(Icons.image, color: Colors.blue),
                     onPressed: _pickImage,
                     tooltip: 'Upload sary',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.attach_file),
+                    icon: const Icon(Icons.attach_file, color: Colors.green),
                     onPressed: _pickFile,
                     tooltip: 'Upload fichier',
                   ),
@@ -314,7 +315,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(_getModeIcon(), color: Colors.purpleAccent),
+                  icon: Icon(_getModeIcon(), color: Colors.purpleAccent, size: 28),
                   onPressed: _sendMessage,
                 ),
               ],
@@ -326,45 +327,60 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildModeSelector() {
-    return PopupMenuButton<AIMode>(
-      icon: Icon(_getModeIcon()),
-      onSelected: (mode) {
-        setState(() {
-          _currentMode = mode;
-        });
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: AIMode.chat,
-          child: Row(
-            children: [
-              Icon(Icons.chat, size: 20),
-              SizedBox(width: 8),
-              Text('Chat'),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: PopupMenuButton<AIMode>(
+        icon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_getModeIcon(), size: 20),
+            const SizedBox(width: 4),
+            Text(_getModeName(), style: const TextStyle(fontSize: 12)),
+            const Icon(Icons.arrow_drop_down, size: 20),
+          ],
         ),
-        const PopupMenuItem(
-          value: AIMode.imageGen,
-          child: Row(
-            children: [
-              Icon(Icons.image, size: 20),
-              SizedBox(width: 8),
-              Text('Image Gen'),
-            ],
+        onSelected: (mode) {
+          setState(() {
+            _currentMode = mode;
+          });
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: AIMode.chat,
+            child: Row(
+              children: [
+                Icon(Icons.chat, size: 20, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('💬 Chat'),
+              ],
+            ),
           ),
-        ),
-        const PopupMenuItem(
-          value: AIMode.videoGen,
-          child: Row(
-            children: [
-              Icon(Icons.video_library, size: 20),
-              SizedBox(width: 8),
-              Text('Video Gen'),
-            ],
+          const PopupMenuItem(
+            value: AIMode.imageGen,
+            child: Row(
+              children: [
+                Icon(Icons.image, size: 20, color: Colors.green),
+                SizedBox(width: 8),
+                Text('🎨 Image'),
+              ],
+            ),
           ),
-        ),
-      ],
+          const PopupMenuItem(
+            value: AIMode.videoGen,
+            child: Row(
+              children: [
+                Icon(Icons.video_library, size: 20, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('🎬 Video'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -379,14 +395,25 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  String _getModeName() {
+    switch (_currentMode) {
+      case AIMode.chat:
+        return 'Chat';
+      case AIMode.imageGen:
+        return 'Image';
+      case AIMode.videoGen:
+        return 'Video';
+    }
+  }
+
   String _getHintText() {
     switch (_currentMode) {
       case AIMode.chat:
         return 'Soraty eto ny hafatrao...';
       case AIMode.imageGen:
-        return 'Lazao ny sary tianao...';
+        return 'Lazao ny sary tianao (ex: sunset beach)...';
       case AIMode.videoGen:
-        return 'Lazao ny video tianao...';
+        return 'Lazao ny video tianao (ex: cat playing)...';
     }
   }
 
@@ -397,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> {
       case AIMode.imageGen:
         return 'Mamorona sary...';
       case AIMode.videoGen:
-        return 'Mamorona video... (mila 1-2 minitra)';
+        return 'Mamorona video (30-60s)...';
     }
   }
 
@@ -415,6 +442,13 @@ class _ChatScreenState extends State<ChatScreen> {
             ? const Color(0xFF7B2CBF) 
             : const Color(0xFF0F3460),
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,36 +459,49 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: message.imageUrl!.startsWith('http')
-                    ? Image.network(message.imageUrl!, fit: BoxFit.cover)
-                    : Image.file(File(message.imageUrl!), fit: BoxFit.cover),
+                    ? Image.network(
+                        message.imageUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            height: 200,
+                            alignment: Alignment.center,
+                            child: const CircularProgressIndicator(),
+                          );
+                        },
+                      )
+                    : Image.file(
+                        File(message.imageUrl!),
+                        fit: BoxFit.cover,
+                      ),
                 ),
               ),
             if (message.videoUrl != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.black26,
+                    color: Colors.black45,
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purpleAccent, width: 2),
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.video_library, size: 48),
+                      const Icon(Icons.video_library, size: 48, color: Colors.purpleAccent),
                       const SizedBox(height: 8),
-                      Text('Video vita!', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      InkWell(
-                        onTap: () {
-                          // Ouvrir le lien video
-                        },
-                        child: Text(
-                          message.videoUrl!,
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
+                      const Text(
+                        '🎬 Video vita!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Base64 video (2s @ 256x256)',
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                     ],
                   ),
@@ -463,12 +510,26 @@ class _ChatScreenState extends State<ChatScreen> {
             if (message.fileName != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.description, size: 16),
-                    const SizedBox(width: 4),
-                    Text(message.fileName!),
-                  ],
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.description, size: 16),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          message.fileName!,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             Text(
