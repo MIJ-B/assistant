@@ -42,7 +42,7 @@ jobs:
       run: flutter config --enable-web
     
     - name: 🏗️ Build web (release)
-      run: flutter build web --release --web-renderer html --base-href /kotokely-ai/
+      run: flutter build web --release --web-renderer html --base-href /assistant/
     
     - name: 📝 Add .nojekyll file
       run: touch build/web/.nojekyll
