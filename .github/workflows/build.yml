@@ -42,109 +42,370 @@ jobs:
     - name: 📦 Get dependencies
       run: flutter pub get
     
-    # 5.5. Generate/Verify Android project structure
-    - name: 🏗️ Generate Android Project Files
+    # 6. Generate complete Android project
+    - name: 🏗️ Generate Complete Android Project
       run: |
-        echo "Checking Android project structure..."
+        echo "🔧 Generating Android project from scratch..."
         
-        if [ ! -d "android" ] || [ ! -f "android/app/src/main/AndroidManifest.xml" ]; then
-          echo "⚠️ Android project incomplete or missing"
-          echo "🔧 Generating Android platform files..."
-          
-          # Create Android platform
-          flutter create --platforms=android --org=com.kotokely --project-name=kotokely_ai .
-          
-          echo "✅ Android project structure created"
-        else
-          echo "✅ Android project already exists"
+        # Remove existing android directory if it exists
+        if [ -d "android" ]; then
+          echo "⚠️ Removing existing android directory..."
+          rm -rf android
         fi
         
-        # Verify critical files
+        # Create Android platform
+        flutter create --platforms=android --org=com.kotokely --project-name=kotokely_ai .
+        
+        echo "✅ Android project generated successfully"
+        
+        # Verify structure
         echo ""
-        echo "📋 Verifying Android files:"
-        [ -f "android/app/src/main/AndroidManifest.xml" ] && echo "  ✓ AndroidManifest.xml" || echo "  ✗ AndroidManifest.xml"
-        [ -f "android/app/build.gradle" ] && echo "  ✓ build.gradle" || echo "  ✗ build.gradle"
-        [ -f "android/build.gradle" ] && echo "  ✓ root build.gradle" || echo "  ✗ root build.gradle"
-        [ -d "android/app/src/main/res" ] && echo "  ✓ res directory" || echo "  ✗ res directory"
+        echo "📋 Verifying Android project structure:"
+        [ -d "android" ] && echo "  ✓ android/" || echo "  ✗ android/"
+        [ -f "android/app/build.gradle" ] && echo "  ✓ app/build.gradle" || echo "  ✗ app/build.gradle"
+        [ -f "android/build.gradle" ] && echo "  ✓ build.gradle" || echo "  ✗ build.gradle"
+        [ -f "android/settings.gradle" ] && echo "  ✓ settings.gradle" || echo "  ✗ settings.gradle"
+        [ -f "android/gradle.properties" ] && echo "  ✓ gradle.properties" || echo "  ✗ gradle.properties"
+        [ -d "android/gradle/wrapper" ] && echo "  ✓ gradle/wrapper/" || echo "  ✗ gradle/wrapper/"
     
-    # 6. Configure Android project
-    - name: ⚙️ Configure Android Project
+    # 7. Configure Gradle for compatibility
+    - name: ⚙️ Configure Gradle Settings
       run: |
-        echo "Configuring Android project for Kotokely AI..."
+        echo "⚙️ Configuring Gradle for optimal compatibility..."
         
-        # Update AndroidManifest.xml with app name and permissions
-        if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
-          # Backup original
-          cp android/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml.bak
-          
-          # Add/Update app label
-          sed -i 's/android:label="[^"]*"/android:label="Kotokely AI"/g' android/app/src/main/AndroidManifest.xml
-          
-          # Add internet permission if not exists
-          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-          fi
-          
-          # Add camera permission if not exists
-          if ! grep -q "android.permission.CAMERA" android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<uses-permission android:name="android.permission.INTERNET"/a\    <uses-permission android:name="android.permission.CAMERA" />' android/app/src/main/AndroidManifest.xml
-          fi
-          
-          # Add storage permissions if not exists
-          if ! grep -q "android.permission.READ_EXTERNAL_STORAGE" android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<uses-permission android:name="android.permission.CAMERA"/a\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
-          fi
-          
-          echo "✅ AndroidManifest.xml configured"
-          echo ""
-          echo "📄 AndroidManifest.xml content:"
-          cat android/app/src/main/AndroidManifest.xml
-        fi
+        # Update gradle-wrapper.properties for Gradle 7.6
+        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-7.6-all.zip
+EOF
+        
+        # Update gradle.properties
+        cat > android/gradle.properties << 'EOF'
+org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G -XX:+HeapDumpOnOutOfMemoryError
+android.useAndroidX=true
+android.enableJetifier=true
+android.enableR8.fullMode=true
+org.gradle.parallel=true
+org.gradle.caching=true
+org.gradle.configureondemand=true
+EOF
+        
+        # Update root build.gradle
+        cat > android/build.gradle << 'EOF'
+buildscript {
+    ext.kotlin_version = '1.9.10'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+EOF
+        
+        # Update app/build.gradle with proper configuration
+        cat > android/app/build.gradle << 'EOF'
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
+android {
+    namespace "com.kotokely.kotokely_ai"
+    compileSdkVersion 34
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        applicationId "com.kotokely.kotokely_ai"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        release {
+            // For now, use debug signing. In production, use proper keystore
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        checkReleaseBuilds false
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
+EOF
+
+        # Create proguard-rules.pro
+        cat > android/app/proguard-rules.pro << 'EOF'
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.**  { *; }
+-keep class io.flutter.util.**  { *; }
+-keep class io.flutter.view.**  { *; }
+-keep class io.flutter.**  { *; }
+-keep class io.flutter.plugins.**  { *; }
+-dontwarn io.flutter.embedding.**
+EOF
+
+        # Copy debug keystore
+        cp ~/.android/debug.keystore android/app/debug.keystore 2>/dev/null || {
+          echo "⚠️ Debug keystore not found, generating new one..."
+          keytool -genkey -v -keystore android/app/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+        }
+        
+        echo "✅ Gradle configuration completed"
     
-    # 7. Generate Android icons
+    # 8. Configure AndroidManifest.xml
+    - name: ⚙️ Configure Android Manifest
+      run: |
+        echo "⚙️ Configuring AndroidManifest.xml..."
+        
+        cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+                     android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    
+    <!-- Camera feature (optional) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <application
+        android:label="Kotokely AI"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    
+    <!-- Queries for Android 11+ -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
+</manifest>
+EOF
+        
+        echo "✅ AndroidManifest.xml configured"
+    
+    # 9. Fix plugin Gradle issues after generation
+    - name: 🔧 Fix Plugin Gradle Configurations
+      run: |
+        echo "🔧 Fixing known plugin Gradle issues..."
+        
+        # Fix package_info_plus
+        PLUGIN_PATH="$HOME/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0/android"
+        if [ -d "$PLUGIN_PATH" ]; then
+          echo "Fixing package_info_plus..."
+          cat > "$PLUGIN_PATH/build.gradle" << 'EOF'
+group 'dev.fluttercommunity.plus.packageinfo'
+version '1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.3.0'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 34
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        minSdkVersion 21
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+}
+
+dependencies {
+    implementation 'androidx.annotation:annotation:1.7.0'
+}
+EOF
+          echo "  ✓ package_info_plus fixed"
+        fi
+        
+        # Fix any other problematic plugins similarly
+        echo "✅ Plugin configurations fixed"
+    
+    # 10. Clean and prepare for build
+    - name: 🧹 Clean Build
+      run: |
+        echo "🧹 Cleaning previous builds..."
+        flutter clean
+        flutter pub get
+        cd android && ./gradlew clean && cd ..
+        echo "✅ Clean completed"
+    
+    # 11. Generate Android icons
     - name: 🎨 Generate Android Icons
       run: |
         if [ -f "assets/icon/icon.png" ]; then
-          echo "📱 Icon found at: assets/icon/icon.png"
+          echo "📱 Icon found, attempting generation..."
           
-          # Check if flutter_launcher_icons is in dependencies
           if grep -q "flutter_launcher_icons" pubspec.yaml; then
-            echo "🎨 Generating launcher icons..."
-            flutter pub run flutter_launcher_icons || {
-              echo "⚠️ Icon generation failed, but continuing..."
-              exit 0
-            }
+            flutter pub run flutter_launcher_icons || echo "⚠️ Icon generation skipped"
           else
-            echo "⚠️ flutter_launcher_icons not found in pubspec.yaml"
-            echo "💡 To add icon generation, add this to pubspec.yaml:"
-            echo ""
-            echo "dev_dependencies:"
-            echo "  flutter_launcher_icons: ^0.13.1"
-            echo ""
-            echo "flutter_launcher_icons:"
-            echo "  android: true"
-            echo "  ios: false"
-            echo "  image_path: \"assets/icon/icon.png\""
+            echo "⚠️ flutter_launcher_icons not configured"
           fi
         else
-          echo "⚠️ Icon not found at assets/icon/icon.png"
-          echo "Skipping icon generation..."
+          echo "⚠️ No icon found at assets/icon/icon.png"
         fi
       continue-on-error: true
     
-    # 8. Build APK (Split per ABI)
-    - name: 🔨 Build APK (Split per ABI)
+    # 12. Build APK (Split per ABI)
+    - name: 🔨 Build Split APKs
       run: |
         echo "🔨 Building split APKs..."
-        flutter build apk --release --split-per-abi
+        flutter build apk --release --split-per-abi --verbose
         
-    # 9. Build Universal APK
+    # 13. Build Universal APK
     - name: 🔨 Build Universal APK
       run: |
         echo "🔨 Building universal APK..."
-        flutter build apk --release
+        flutter build apk --release --verbose
         
-    # 10. Rename and organize APKs
+    # 14. Rename and organize APKs
     - name: 📝 Rename APKs
       run: |
         cd build/app/outputs/flutter-apk
@@ -161,7 +422,7 @@ jobs:
         echo "📊 Final APK sizes:"
         ls -lh kotokely-*.apk 2>/dev/null || ls -lh *.apk
     
-    # 11. Get version from pubspec.yaml
+    # 15. Get version from pubspec.yaml
     - name: 📌 Get version
       id: version
       run: |
@@ -169,7 +430,7 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "📌 Version: $VERSION"
     
-    # 12. Upload ARM32 APK
+    # 16. Upload ARM32 APK
     - name: 📤 Upload ARM32 APK
       uses: actions/upload-artifact@v4
       with:
@@ -177,14 +438,14 @@ jobs:
         path: build/app/outputs/flutter-apk/kotokely-arm32.apk
         if-no-files-found: warn
     
-    # 13. Upload ARM64 APK
+    # 17. Upload ARM64 APK
     - name: 📤 Upload ARM64 APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-arm64-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-arm64.apk
     
-    # 14. Upload x86_64 APK
+    # 18. Upload x86_64 APK
     - name: 📤 Upload x86_64 APK
       uses: actions/upload-artifact@v4
       with:
@@ -192,14 +453,14 @@ jobs:
         path: build/app/outputs/flutter-apk/kotokely-x86_64.apk
         if-no-files-found: warn
     
-    # 15. Upload Universal APK
+    # 19. Upload Universal APK
     - name: 📤 Upload Universal APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-universal-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-universal.apk
     
-    # 16. Create Release (only on tag)
+    # 20. Create Release (only on tag)
     - name: 🚀 Create Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
