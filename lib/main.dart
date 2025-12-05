@@ -12,6 +12,15 @@ void main() {
   runApp(const KotokelyApp());
 }
 
+// ⚠️ OVAO ITY CONFIGURATION ITY
+class SupabaseConfig {
+  // Alao ao amin'ny Supabase Dashboard > Settings > API
+  static const String supabaseUrl = 'https://zogohkfzplcuonkkfoov.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvZ29oa2Z6cGxjdW9ua2tmb292Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0ODAsImV4cCI6MjA3NjQ1NTQ4MH0.AeQ5pbrwjCAOsh8DA7pl33B7hLWfaiYwGa36CaeXCsw'; // ⚠️ OVAO!
+  
+  static String get edgeFunctionUrl => '$supabaseUrl/functions/v1/kotokely-ai';
+}
+
 class KotokelyApp extends StatelessWidget {
   const KotokelyApp({Key? key}) : super(key: key);
 
@@ -209,8 +218,6 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
   String? _selectedImagePath;
   String? _selectedFilePath;
-  
-  final String _supabaseUrl = 'https://zogohkfzplcuonkkfoov.supabase.co/functions/v1/kotokely-ai';
 
   @override
   void initState() {
@@ -298,9 +305,13 @@ class _ChatScreenState extends State<ChatScreen> {
         fileContent = await File(_selectedFilePath!).readAsString();
       }
 
+      // ⭐ OVANA ITY: Nanampy Authorization header
       final response = await http.post(
-        Uri.parse(_supabaseUrl),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(SupabaseConfig.edgeFunctionUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}', // ⭐ ITY NO NANAMPY!
+        },
         body: jsonEncode({
           'message': userMessage,
           'image': imageBase64,
@@ -327,7 +338,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _selectedFilePath = null;
         });
       } else {
-        throw Exception('Error: ${response.statusCode}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
       setState(() {
