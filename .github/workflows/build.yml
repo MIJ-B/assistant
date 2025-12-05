@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -42,40 +42,134 @@ jobs:
     - name: 📦 Get dependencies
       run: flutter pub get
     
-    # 6. Generate Android icons
+    # 5.5. Generate/Verify Android project structure
+    - name: 🏗️ Generate Android Project Files
+      run: |
+        echo "Checking Android project structure..."
+        
+        if [ ! -d "android" ] || [ ! -f "android/app/src/main/AndroidManifest.xml" ]; then
+          echo "⚠️ Android project incomplete or missing"
+          echo "🔧 Generating Android platform files..."
+          
+          # Create Android platform
+          flutter create --platforms=android --org=com.kotokely --project-name=kotokely_ai .
+          
+          echo "✅ Android project structure created"
+        else
+          echo "✅ Android project already exists"
+        fi
+        
+        # Verify critical files
+        echo ""
+        echo "📋 Verifying Android files:"
+        [ -f "android/app/src/main/AndroidManifest.xml" ] && echo "  ✓ AndroidManifest.xml" || echo "  ✗ AndroidManifest.xml"
+        [ -f "android/app/build.gradle" ] && echo "  ✓ build.gradle" || echo "  ✗ build.gradle"
+        [ -f "android/build.gradle" ] && echo "  ✓ root build.gradle" || echo "  ✗ root build.gradle"
+        [ -d "android/app/src/main/res" ] && echo "  ✓ res directory" || echo "  ✗ res directory"
+    
+    # 6. Configure Android project
+    - name: ⚙️ Configure Android Project
+      run: |
+        echo "Configuring Android project for Kotokely AI..."
+        
+        # Update AndroidManifest.xml with app name and permissions
+        if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+          # Backup original
+          cp android/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml.bak
+          
+          # Add/Update app label
+          sed -i 's/android:label="[^"]*"/android:label="Kotokely AI"/g' android/app/src/main/AndroidManifest.xml
+          
+          # Add internet permission if not exists
+          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          fi
+          
+          # Add camera permission if not exists
+          if ! grep -q "android.permission.CAMERA" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<uses-permission android:name="android.permission.INTERNET"/a\    <uses-permission android:name="android.permission.CAMERA" />' android/app/src/main/AndroidManifest.xml
+          fi
+          
+          # Add storage permissions if not exists
+          if ! grep -q "android.permission.READ_EXTERNAL_STORAGE" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<uses-permission android:name="android.permission.CAMERA"/a\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+          fi
+          
+          echo "✅ AndroidManifest.xml configured"
+          echo ""
+          echo "📄 AndroidManifest.xml content:"
+          cat android/app/src/main/AndroidManifest.xml
+        fi
+    
+    # 7. Generate Android icons
     - name: 🎨 Generate Android Icons
       run: |
-        echo "Generating launcher icons..."
-        flutter pub run flutter_launcher_icons
+        if [ -f "assets/icon/icon.png" ]; then
+          echo "📱 Icon found at: assets/icon/icon.png"
+          
+          # Check if flutter_launcher_icons is in dependencies
+          if grep -q "flutter_launcher_icons" pubspec.yaml; then
+            echo "🎨 Generating launcher icons..."
+            flutter pub run flutter_launcher_icons || {
+              echo "⚠️ Icon generation failed, but continuing..."
+              exit 0
+            }
+          else
+            echo "⚠️ flutter_launcher_icons not found in pubspec.yaml"
+            echo "💡 To add icon generation, add this to pubspec.yaml:"
+            echo ""
+            echo "dev_dependencies:"
+            echo "  flutter_launcher_icons: ^0.13.1"
+            echo ""
+            echo "flutter_launcher_icons:"
+            echo "  android: true"
+            echo "  ios: false"
+            echo "  image_path: \"assets/icon/icon.png\""
+          fi
+        else
+          echo "⚠️ Icon not found at assets/icon/icon.png"
+          echo "Skipping icon generation..."
+        fi
+      continue-on-error: true
     
-    # 7. Build APK
-    - name: 🔨 Build APK
+    # 8. Build APK (Split per ABI)
+    - name: 🔨 Build APK (Split per ABI)
       run: |
+        echo "🔨 Building split APKs..."
         flutter build apk --release --split-per-abi
         
-    # 8. Rename APKs
+    # 9. Build Universal APK
+    - name: 🔨 Build Universal APK
+      run: |
+        echo "🔨 Building universal APK..."
+        flutter build apk --release
+        
+    # 10. Rename and organize APKs
     - name: 📝 Rename APKs
       run: |
         cd build/app/outputs/flutter-apk
-        mv app-armeabi-v7a-release.apk kotokely-arm32.apk || true
-        mv app-arm64-v8a-release.apk kotokely-arm64.apk || true
-        mv app-x86_64-release.apk kotokely-x86_64.apk || true
-        # Build universal APK
-        cd ../../../../
-        flutter build apk --release
-        cd build/app/outputs/flutter-apk
-        mv app-release.apk kotokely-universal.apk
-        ls -lh
+        
+        echo "📦 Organizing APK files..."
+        
+        # Rename split APKs
+        [ -f app-armeabi-v7a-release.apk ] && mv app-armeabi-v7a-release.apk kotokely-arm32.apk && echo "  ✓ kotokely-arm32.apk"
+        [ -f app-arm64-v8a-release.apk ] && mv app-arm64-v8a-release.apk kotokely-arm64.apk && echo "  ✓ kotokely-arm64.apk"
+        [ -f app-x86_64-release.apk ] && mv app-x86_64-release.apk kotokely-x86_64.apk && echo "  ✓ kotokely-x86_64.apk"
+        [ -f app-release.apk ] && mv app-release.apk kotokely-universal.apk && echo "  ✓ kotokely-universal.apk"
+        
+        echo ""
+        echo "📊 Final APK sizes:"
+        ls -lh kotokely-*.apk 2>/dev/null || ls -lh *.apk
     
-    # 9. Get version from pubspec.yaml
+    # 11. Get version from pubspec.yaml
     - name: 📌 Get version
       id: version
       run: |
         VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
+        echo "📌 Version: $VERSION"
     
-    # 10. Upload ARM32 APK
+    # 12. Upload ARM32 APK
     - name: 📤 Upload ARM32 APK
       uses: actions/upload-artifact@v4
       with:
@@ -83,14 +177,14 @@ jobs:
         path: build/app/outputs/flutter-apk/kotokely-arm32.apk
         if-no-files-found: warn
     
-    # 11. Upload ARM64 APK
+    # 13. Upload ARM64 APK
     - name: 📤 Upload ARM64 APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-arm64-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-arm64.apk
     
-    # 12. Upload x86_64 APK
+    # 14. Upload x86_64 APK
     - name: 📤 Upload x86_64 APK
       uses: actions/upload-artifact@v4
       with:
@@ -98,14 +192,14 @@ jobs:
         path: build/app/outputs/flutter-apk/kotokely-x86_64.apk
         if-no-files-found: warn
     
-    # 13. Upload Universal APK
+    # 15. Upload Universal APK
     - name: 📤 Upload Universal APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-universal-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-universal.apk
     
-    # 14. Create Release (optional - only on tag)
+    # 16. Create Release (only on tag)
     - name: 🚀 Create Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
@@ -121,7 +215,7 @@ jobs:
           
           ### 📥 Downloads:
           - **kotokely-universal.apk** - Ho an'ny telefaona rehetra (lehibe kokoa)
-          - **kotokely-arm64.apk** - Ho an'ny telefaona maoderina (64-bit) - Recommended
+          - **kotokely-arm64.apk** - Ho an'ny telefaona maoderina (64-bit) - ⭐ Recommended
           - **kotokely-arm32.apk** - Ho an'ny telefaona taloha (32-bit)
           - **kotokely-x86_64.apk** - Ho an'ny emulators
           
@@ -132,8 +226,9 @@ jobs:
           
           ### 📱 Installation:
           1. Download ny APK mifanaraka amin'ny telefaonao
-          2. Enable "Install from Unknown Sources"
+          2. Enable "Install from Unknown Sources" ao amin'ny Settings
           3. Install ny APK
+          4. Enjoy! 🎉
           
           Built with ❤️ by Kotokely AI Team
       env:
