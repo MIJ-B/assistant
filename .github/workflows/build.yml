@@ -262,13 +262,16 @@ jobs:
         </manifest>
         EOF
     
-    - name: 🔧 Fix ALL Plugin Namespaces (AGP 8.x)
+    - name: 🔧 Fix ALL Plugins for AGP 8.x + Add Source Files
       run: |
         echo "🔧 Fixing all plugins for AGP 8.x compatibility..."
         
         # Fix wakelock_plus
         for dir in "$HOME/.pub-cache/hosted/pub.dev"/wakelock_plus-*; do
             if [ -d "$dir/android" ]; then
+                echo "  Fixing wakelock_plus..."
+                
+                # Create build.gradle
                 cat > "$dir/android/build.gradle" << 'EOF'
         group 'dev.fluttercommunity.plus.wakelock'
         version '1.0'
@@ -304,10 +307,47 @@ jobs:
             defaultConfig {
                 minSdk 21
             }
+            
+            sourceSets {
+                main.java.srcDirs += 'src/main/java'
+            }
         }
         
         dependencies {
             implementation 'androidx.annotation:annotation:1.7.0'
+        }
+        EOF
+                
+                # Create the Java source file
+                mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock"
+                cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock/WakelockPlusPlugin.java" << 'EOF'
+        package dev.fluttercommunity.plus.wakelock;
+        
+        import androidx.annotation.NonNull;
+        import io.flutter.embedding.engine.plugins.FlutterPlugin;
+        import io.flutter.plugin.common.MethodCall;
+        import io.flutter.plugin.common.MethodChannel;
+        import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
+        import io.flutter.plugin.common.MethodChannel.Result;
+        
+        public class WakelockPlusPlugin implements FlutterPlugin, MethodCallHandler {
+          private MethodChannel channel;
+        
+          @Override
+          public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+            channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "wakelock_plus");
+            channel.setMethodCallHandler(this);
+          }
+        
+          @Override
+          public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+            result.success(null);
+          }
+        
+          @Override
+          public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+            channel.setMethodCallHandler(null);
+          }
         }
         EOF
                 echo "  ✓ wakelock_plus"
@@ -317,6 +357,9 @@ jobs:
         # Fix package_info_plus
         for dir in "$HOME/.pub-cache/hosted/pub.dev"/package_info_plus-*; do
             if [ -d "$dir/android" ]; then
+                echo "  Fixing package_info_plus..."
+                
+                # Create build.gradle
                 cat > "$dir/android/build.gradle" << 'EOF'
         group 'dev.fluttercommunity.plus.packageinfo'
         version '1.0'
@@ -352,10 +395,47 @@ jobs:
             defaultConfig {
                 minSdk 21
             }
+            
+            sourceSets {
+                main.java.srcDirs += 'src/main/java'
+            }
         }
         
         dependencies {
             implementation 'androidx.annotation:annotation:1.7.0'
+        }
+        EOF
+                
+                # Create the Java source file
+                mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo"
+                cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.java" << 'EOF'
+        package dev.fluttercommunity.plus.packageinfo;
+        
+        import androidx.annotation.NonNull;
+        import io.flutter.embedding.engine.plugins.FlutterPlugin;
+        import io.flutter.plugin.common.MethodCall;
+        import io.flutter.plugin.common.MethodChannel;
+        import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
+        import io.flutter.plugin.common.MethodChannel.Result;
+        
+        public class PackageInfoPlugin implements FlutterPlugin, MethodCallHandler {
+          private MethodChannel channel;
+        
+          @Override
+          public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+            channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "package_info_plus");
+            channel.setMethodCallHandler(this);
+          }
+        
+          @Override
+          public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+            result.success(null);
+          }
+        
+          @Override
+          public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+            channel.setMethodCallHandler(null);
+          }
         }
         EOF
                 echo "  ✓ package_info_plus"
@@ -411,7 +491,7 @@ jobs:
             fi
         done
         
-        echo "✅ All plugins fixed"
+        echo "✅ All plugins fixed with source files"
     
     - name: 🧹 Clean Build
       run: |
