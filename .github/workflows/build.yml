@@ -13,18 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # 1. Checkout code
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
     
-    # 2. Setup Java
     - name: ☕ Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
     
-    # 3. Setup Flutter
     - name: 🐦 Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -32,465 +29,329 @@ jobs:
         channel: 'stable'
         cache: true
     
-    # 4. Verify Flutter installation
     - name: ✅ Verify Flutter
       run: |
         flutter --version
         flutter doctor -v
     
-    # 5. Get dependencies
     - name: 📦 Get dependencies
       run: flutter pub get
     
-    # 6. Generate complete Android project
-    - name: 🏗️ Generate Complete Android Project
+    - name: 🏗️ Generate Android Project
       run: |
-        echo "🔧 Generating Android project from scratch..."
+        echo "🔧 Generating Android project..."
         
-        # Remove existing android directory if it exists
         if [ -d "android" ]; then
           echo "⚠️ Removing existing android directory..."
           rm -rf android
         fi
         
-        # Create Android platform
         flutter create --platforms=android --org=com.kotokely --project-name=kotokely_ai .
         
-        echo "✅ Android project generated successfully"
-        
-        # Verify structure
-        echo ""
-        echo "📋 Verifying Android project structure:"
-        [ -d "android" ] && echo "  ✓ android/" || echo "  ✗ android/"
-        [ -f "android/app/build.gradle" ] && echo "  ✓ app/build.gradle" || echo "  ✗ app/build.gradle"
-        [ -f "android/build.gradle" ] && echo "  ✓ build.gradle" || echo "  ✗ build.gradle"
-        [ -f "android/settings.gradle" ] && echo "  ✓ settings.gradle" || echo "  ✗ settings.gradle"
-        [ -f "android/gradle.properties" ] && echo "  ✓ gradle.properties" || echo "  ✗ gradle.properties"
-        [ -d "android/gradle/wrapper" ] && echo "  ✓ gradle/wrapper/" || echo "  ✗ gradle/wrapper/"
+        echo "✅ Android project generated"
     
-    # 7. Configure Gradle for compatibility
-    - name: ⚙️ Configure Gradle Settings
+    - name: ⚙️ Configure Gradle
       run: |
-        echo "⚙️ Configuring Gradle for optimal compatibility..."
+        echo "⚙️ Configuring Gradle..."
         
-        # Update gradle-wrapper.properties for Gradle 7.6
+        # Gradle wrapper properties
         cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-7.6-all.zip
-EOF
+        distributionBase=GRADLE_USER_HOME
+        distributionPath=wrapper/dists
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-7.6-all.zip
+        EOF
         
-        # Update gradle.properties
+        # Gradle properties
         cat > android/gradle.properties << 'EOF'
-org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G -XX:+HeapDumpOnOutOfMemoryError
-android.useAndroidX=true
-android.enableJetifier=true
-android.enableR8.fullMode=true
-org.gradle.parallel=true
-org.gradle.caching=true
-org.gradle.configureondemand=true
-EOF
+        org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
+        android.useAndroidX=true
+        android.enableJetifier=true
+        android.enableR8.fullMode=true
+        org.gradle.parallel=true
+        org.gradle.caching=true
+        EOF
         
-        # Update root build.gradle
+        # Root build.gradle
         cat > android/build.gradle << 'EOF'
-buildscript {
-    ext.kotlin_version = '1.9.10'
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.4.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-rootProject.buildDir = '../build'
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(':app')
-}
-
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
-}
-EOF
+        buildscript {
+            ext.kotlin_version = '1.9.10'
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:7.4.2'
+                classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+            }
+        }
         
-        # Update app/build.gradle with proper configuration
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        
+        rootProject.buildDir = '../build'
+        subprojects {
+            project.buildDir = "${rootProject.buildDir}/${project.name}"
+        }
+        subprojects {
+            project.evaluationDependsOn(':app')
+        }
+        
+        tasks.register("clean", Delete) {
+            delete rootProject.buildDir
+        }
+        EOF
+        
+        # App build.gradle
         cat > android/app/build.gradle << 'EOF'
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
-}
-
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
-}
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-
-android {
-    namespace "com.kotokely.kotokely_ai"
-    compileSdkVersion 34
-    ndkVersion flutter.ndkVersion
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
-    }
-
-    defaultConfig {
-        applicationId "com.kotokely.kotokely_ai"
-        minSdkVersion 21
-        targetSdkVersion 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-        multiDexEnabled true
-    }
-
-    signingConfigs {
-        release {
-            // For now, use debug signing. In production, use proper keystore
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+        def localProperties = new Properties()
+        def localPropertiesFile = rootProject.file('local.properties')
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.withReader('UTF-8') { reader ->
+                localProperties.load(reader)
+            }
         }
-    }
-
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        
+        def flutterRoot = localProperties.getProperty('flutter.sdk')
+        if (flutterRoot == null) {
+            throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
         }
-    }
-
-    lintOptions {
-        disable 'InvalidPackage'
-        checkReleaseBuilds false
-    }
-}
-
-flutter {
-    source '../..'
-}
-
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'androidx.multidex:multidex:2.0.1'
-}
-EOF
-
-        # Create proguard-rules.pro
+        
+        def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+        if (flutterVersionCode == null) {
+            flutterVersionCode = '1'
+        }
+        
+        def flutterVersionName = localProperties.getProperty('flutter.versionName')
+        if (flutterVersionName == null) {
+            flutterVersionName = '1.0'
+        }
+        
+        apply plugin: 'com.android.application'
+        apply plugin: 'kotlin-android'
+        apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+        
+        android {
+            namespace "com.kotokely.kotokely_ai"
+            compileSdkVersion 34
+            ndkVersion flutter.ndkVersion
+        
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_1_8
+                targetCompatibility JavaVersion.VERSION_1_8
+            }
+        
+            kotlinOptions {
+                jvmTarget = '1.8'
+            }
+        
+            sourceSets {
+                main.java.srcDirs += 'src/main/kotlin'
+            }
+        
+            defaultConfig {
+                applicationId "com.kotokely.kotokely_ai"
+                minSdkVersion 21
+                targetSdkVersion 34
+                versionCode flutterVersionCode.toInteger()
+                versionName flutterVersionName
+                multiDexEnabled true
+            }
+        
+            signingConfigs {
+                release {
+                    storeFile file('debug.keystore')
+                    storePassword 'android'
+                    keyAlias 'androiddebugkey'
+                    keyPassword 'android'
+                }
+            }
+        
+            buildTypes {
+                release {
+                    signingConfig signingConfigs.release
+                    minifyEnabled true
+                    shrinkResources true
+                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                }
+            }
+        
+            lintOptions {
+                disable 'InvalidPackage'
+                checkReleaseBuilds false
+            }
+        }
+        
+        flutter {
+            source '../..'
+        }
+        
+        dependencies {
+            implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+            implementation 'androidx.multidex:multidex:2.0.1'
+        }
+        EOF
+        
+        # Proguard rules
         cat > android/app/proguard-rules.pro << 'EOF'
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.**  { *; }
--keep class io.flutter.util.**  { *; }
--keep class io.flutter.view.**  { *; }
--keep class io.flutter.**  { *; }
--keep class io.flutter.plugins.**  { *; }
--dontwarn io.flutter.embedding.**
-EOF
-
-        # Copy debug keystore
-        cp ~/.android/debug.keystore android/app/debug.keystore 2>/dev/null || {
-          echo "⚠️ Debug keystore not found, generating new one..."
-          keytool -genkey -v -keystore android/app/debug.keystore \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-        }
+        -keep class io.flutter.app.** { *; }
+        -keep class io.flutter.plugin.**  { *; }
+        -keep class io.flutter.util.**  { *; }
+        -keep class io.flutter.view.**  { *; }
+        -keep class io.flutter.**  { *; }
+        -keep class io.flutter.plugins.**  { *; }
+        -dontwarn io.flutter.embedding.**
+        EOF
         
-        echo "✅ Gradle configuration completed"
+        # Debug keystore
+        keytool -genkey -v -keystore android/app/debug.keystore \
+          -storepass android -alias androiddebugkey -keypass android \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || echo "Keystore exists"
+        
+        echo "✅ Gradle configured"
     
-    # 8. Configure AndroidManifest.xml
-    - name: ⚙️ Configure Android Manifest
+    - name: ⚙️ Configure AndroidManifest
       run: |
-        echo "⚙️ Configuring AndroidManifest.xml..."
-        
         cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    
-    <!-- Permissions -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-                     android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    
-    <!-- Camera feature (optional) -->
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
-
-    <application
-        android:label="Kotokely AI"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
-        
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+            <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
             
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+            <uses-feature android:name="android.hardware.camera" android:required="false" />
         
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-    
-    <!-- Queries for Android 11+ -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="https" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.SEND" />
-            <data android:mimeType="*/*" />
-        </intent>
-    </queries>
-</manifest>
-EOF
+            <application
+                android:label="Kotokely AI"
+                android:name="${applicationName}"
+                android:icon="@mipmap/ic_launcher"
+                android:usesCleartextTraffic="true">
+                
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:launchMode="singleTop"
+                    android:theme="@style/LaunchTheme"
+                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                    android:hardwareAccelerated="true"
+                    android:windowSoftInputMode="adjustResize">
+                    
+                    <meta-data
+                      android:name="io.flutter.embedding.android.NormalTheme"
+                      android:resource="@style/NormalTheme" />
+                    
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+                
+                <meta-data
+                    android:name="flutterEmbedding"
+                    android:value="2" />
+            </application>
+            
+            <queries>
+                <intent>
+                    <action android:name="android.intent.action.VIEW" />
+                    <data android:scheme="https" />
+                </intent>
+            </queries>
+        </manifest>
+        EOF
         
-        echo "✅ AndroidManifest.xml configured"
+        echo "✅ AndroidManifest configured"
     
-    # 9. Fix plugin Gradle issues after generation
-    - name: 🔧 Fix Plugin Gradle Configurations
+    - name: 🔧 Fix Plugin Issues
       run: |
-        echo "🔧 Fixing known plugin Gradle issues..."
-        
-        # Fix package_info_plus
         PLUGIN_PATH="$HOME/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0/android"
         if [ -d "$PLUGIN_PATH" ]; then
-          echo "Fixing package_info_plus..."
           cat > "$PLUGIN_PATH/build.gradle" << 'EOF'
-group 'dev.fluttercommunity.plus.packageinfo'
-version '1.0'
-
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
-    }
-}
-
-rootProject.allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-apply plugin: 'com.android.library'
-
-android {
-    compileSdkVersion 34
-    
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    defaultConfig {
-        minSdkVersion 21
-    }
-
-    lintOptions {
-        disable 'InvalidPackage'
-    }
-}
-
-dependencies {
-    implementation 'androidx.annotation:annotation:1.7.0'
-}
-EOF
-          echo "  ✓ package_info_plus fixed"
-        fi
+        group 'dev.fluttercommunity.plus.packageinfo'
+        version '1.0'
         
-        # Fix any other problematic plugins similarly
-        echo "✅ Plugin configurations fixed"
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:7.3.0'
+            }
+        }
+        
+        rootProject.allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        
+        apply plugin: 'com.android.library'
+        
+        android {
+            compileSdkVersion 34
+            
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_1_8
+                targetCompatibility JavaVersion.VERSION_1_8
+            }
+        
+            defaultConfig {
+                minSdkVersion 21
+            }
+        }
+        
+        dependencies {
+            implementation 'androidx.annotation:annotation:1.7.0'
+        }
+        EOF
+          echo "✅ package_info_plus fixed"
+        fi
     
-    # 10. Clean and prepare for build
     - name: 🧹 Clean Build
       run: |
-        echo "🧹 Cleaning previous builds..."
         flutter clean
         flutter pub get
-        cd android && ./gradlew clean && cd ..
-        echo "✅ Clean completed"
     
-    # 11. Generate Android icons
-    - name: 🎨 Generate Android Icons
+    - name: 🔨 Build APKs
       run: |
-        if [ -f "assets/icon/icon.png" ]; then
-          echo "📱 Icon found, attempting generation..."
-          
-          if grep -q "flutter_launcher_icons" pubspec.yaml; then
-            flutter pub run flutter_launcher_icons || echo "⚠️ Icon generation skipped"
-          else
-            echo "⚠️ flutter_launcher_icons not configured"
-          fi
-        else
-          echo "⚠️ No icon found at assets/icon/icon.png"
-        fi
-      continue-on-error: true
+        echo "🔨 Building APKs..."
+        flutter build apk --release --split-per-abi
+        flutter build apk --release
     
-    # 12. Build APK (Split per ABI)
-    - name: 🔨 Build Split APKs
-      run: |
-        echo "🔨 Building split APKs..."
-        flutter build apk --release --split-per-abi --verbose
-        
-    # 13. Build Universal APK
-    - name: 🔨 Build Universal APK
-      run: |
-        echo "🔨 Building universal APK..."
-        flutter build apk --release --verbose
-        
-    # 14. Rename and organize APKs
-    - name: 📝 Rename APKs
+    - name: 📝 Organize APKs
       run: |
         cd build/app/outputs/flutter-apk
-        
-        echo "📦 Organizing APK files..."
-        
-        # Rename split APKs
-        [ -f app-armeabi-v7a-release.apk ] && mv app-armeabi-v7a-release.apk kotokely-arm32.apk && echo "  ✓ kotokely-arm32.apk"
-        [ -f app-arm64-v8a-release.apk ] && mv app-arm64-v8a-release.apk kotokely-arm64.apk && echo "  ✓ kotokely-arm64.apk"
-        [ -f app-x86_64-release.apk ] && mv app-x86_64-release.apk kotokely-x86_64.apk && echo "  ✓ kotokely-x86_64.apk"
-        [ -f app-release.apk ] && mv app-release.apk kotokely-universal.apk && echo "  ✓ kotokely-universal.apk"
-        
-        echo ""
-        echo "📊 Final APK sizes:"
-        ls -lh kotokely-*.apk 2>/dev/null || ls -lh *.apk
+        [ -f app-armeabi-v7a-release.apk ] && mv app-armeabi-v7a-release.apk kotokely-arm32.apk
+        [ -f app-arm64-v8a-release.apk ] && mv app-arm64-v8a-release.apk kotokely-arm64.apk
+        [ -f app-x86_64-release.apk ] && mv app-x86_64-release.apk kotokely-x86_64.apk
+        [ -f app-release.apk ] && mv app-release.apk kotokely-universal.apk
+        ls -lh *.apk
     
-    # 15. Get version from pubspec.yaml
-    - name: 📌 Get version
+    - name: 📌 Get Version
       id: version
       run: |
         VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "📌 Version: $VERSION"
     
-    # 16. Upload ARM32 APK
-    - name: 📤 Upload ARM32 APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: kotokely-arm32-v${{ steps.version.outputs.version }}
-        path: build/app/outputs/flutter-apk/kotokely-arm32.apk
-        if-no-files-found: warn
-    
-    # 17. Upload ARM64 APK
     - name: 📤 Upload ARM64 APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-arm64-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-arm64.apk
     
-    # 18. Upload x86_64 APK
-    - name: 📤 Upload x86_64 APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: kotokely-x86_64-v${{ steps.version.outputs.version }}
-        path: build/app/outputs/flutter-apk/kotokely-x86_64.apk
-        if-no-files-found: warn
-    
-    # 19. Upload Universal APK
     - name: 📤 Upload Universal APK
       uses: actions/upload-artifact@v4
       with:
         name: kotokely-universal-v${{ steps.version.outputs.version }}
         path: build/app/outputs/flutter-apk/kotokely-universal.apk
-    
-    # 20. Create Release (only on tag)
-    - name: 🚀 Create Release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          build/app/outputs/flutter-apk/kotokely-arm32.apk
-          build/app/outputs/flutter-apk/kotokely-arm64.apk
-          build/app/outputs/flutter-apk/kotokely-x86_64.apk
-          build/app/outputs/flutter-apk/kotokely-universal.apk
-        name: Kotokely AI v${{ steps.version.outputs.version }}
-        body: |
-          ## 🦎 Kotokely AI v${{ steps.version.outputs.version }}
-          
-          ### 📥 Downloads:
-          - **kotokely-universal.apk** - Ho an'ny telefaona rehetra (lehibe kokoa)
-          - **kotokely-arm64.apk** - Ho an'ny telefaona maoderina (64-bit) - ⭐ Recommended
-          - **kotokely-arm32.apk** - Ho an'ny telefaona taloha (32-bit)
-          - **kotokely-x86_64.apk** - Ho an'ny emulators
-          
-          ### ✨ Features:
-          - 💬 Kotokely - Text Chat & File Upload
-          - 🎨 Balita - Image Generation
-          - 🎬 Ketaka - Video Generation
-          
-          ### 📱 Installation:
-          1. Download ny APK mifanaraka amin'ny telefaonao
-          2. Enable "Install from Unknown Sources" ao amin'ny Settings
-          3. Install ny APK
-          4. Enjoy! 🎉
-          
-          Built with ❤️ by Kotokely AI Team
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
