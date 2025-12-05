@@ -65,7 +65,7 @@ jobs:
         org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
         android.useAndroidX=true
         android.enableJetifier=true
-        android.enableR8.fullMode=true
+        android.enableR8.fullMode=false
         org.gradle.parallel=true
         org.gradle.caching=true
         EOF
@@ -170,9 +170,8 @@ jobs:
             buildTypes {
                 release {
                     signingConfig signingConfigs.release
-                    minifyEnabled true
-                    shrinkResources true
-                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                    minifyEnabled false
+                    shrinkResources false
                 }
             }
         
@@ -190,16 +189,6 @@ jobs:
             implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
             implementation 'androidx.multidex:multidex:2.0.1'
         }
-        EOF
-        
-        cat > android/app/proguard-rules.pro << 'EOF'
-        -keep class io.flutter.app.** { *; }
-        -keep class io.flutter.plugin.**  { *; }
-        -keep class io.flutter.util.**  { *; }
-        -keep class io.flutter.view.**  { *; }
-        -keep class io.flutter.**  { *; }
-        -keep class io.flutter.plugins.**  { *; }
-        -dontwarn io.flutter.embedding.**
         EOF
         
         keytool -genkey -v -keystore android/app/debug.keystore \
@@ -271,7 +260,6 @@ jobs:
             if [ -d "$dir/android" ]; then
                 echo "  Fixing wakelock_plus..."
                 
-                # Create build.gradle
                 cat > "$dir/android/build.gradle" << 'EOF'
         group 'dev.fluttercommunity.plus.wakelock'
         version '1.0'
@@ -318,7 +306,6 @@ jobs:
         }
         EOF
                 
-                # Create the Java source file
                 mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock"
                 cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock/WakelockPlusPlugin.java" << 'EOF'
         package dev.fluttercommunity.plus.wakelock;
@@ -359,7 +346,6 @@ jobs:
             if [ -d "$dir/android" ]; then
                 echo "  Fixing package_info_plus..."
                 
-                # Create build.gradle
                 cat > "$dir/android/build.gradle" << 'EOF'
         group 'dev.fluttercommunity.plus.packageinfo'
         version '1.0'
@@ -406,7 +392,6 @@ jobs:
         }
         EOF
                 
-                # Create the Java source file
                 mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo"
                 cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.java" << 'EOF'
         package dev.fluttercommunity.plus.packageinfo;
