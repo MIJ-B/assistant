@@ -7,17 +7,15 @@ import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const KotokelyApp());
 }
 
-// ⚠️ OVAO ITY CONFIGURATION ITY
 class SupabaseConfig {
-  // Alao ao amin'ny Supabase Dashboard > Settings > API
   static const String supabaseUrl = 'https://zogohkfzplcuonkkfoov.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvZ29oa2Z6cGxjdW9ua2tmb292Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0ODAsImV4cCI6MjA3NjQ1NTQ4MH0.AeQ5pbrwjCAOsh8DA7pl33B7hLWfaiYwGa36CaeXCsw'; // ⚠️ OVAO!
-  
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvZ29oa2Z6cGxjdW9ua2tmb292Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0ODAsImV4cCI6MjA3NjQ1NTQ4MH0.AeQ5pbrwjCAOsh8DA7pl33B7hLWfaiYwGa36CaeXCsw';
   static String get edgeFunctionUrl => '$supabaseUrl/functions/v1/kotokely-ai';
 }
 
@@ -65,8 +63,15 @@ enum AssistantType {
   ketaka,
 }
 
-class AssistantSelector extends StatelessWidget {
+class AssistantSelector extends StatefulWidget {
   const AssistantSelector({Key? key}) : super(key: key);
+
+  @override
+  State<AssistantSelector> createState() => _AssistantSelectorState();
+}
+
+class _AssistantSelectorState extends State<AssistantSelector> {
+  int? _hoveredIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +90,7 @@ class AssistantSelector extends StatelessWidget {
             children: [
               _buildAssistantCard(
                 context,
+                index: 0,
                 type: AssistantType.kotokely,
                 title: 'Kotokely',
                 subtitle: 'Text Chat & File Upload',
@@ -94,6 +100,7 @@ class AssistantSelector extends StatelessWidget {
               const SizedBox(height: 20),
               _buildAssistantCard(
                 context,
+                index: 1,
                 type: AssistantType.balita,
                 title: 'Balita',
                 subtitle: 'Image Generation',
@@ -103,6 +110,7 @@ class AssistantSelector extends StatelessWidget {
               const SizedBox(height: 20),
               _buildAssistantCard(
                 context,
+                index: 2,
                 type: AssistantType.ketaka,
                 title: 'Ketaka',
                 subtitle: 'Video Generation',
@@ -118,82 +126,94 @@ class AssistantSelector extends StatelessWidget {
 
   Widget _buildAssistantCard(
     BuildContext context, {
+    required int index,
     required AssistantType type,
     required String title,
     required String subtitle,
     required String icon,
     required Color color,
   }) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(assistantType: type),
-          ),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F3460),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+    final isHovered = _hoveredIndex == index;
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredIndex = index),
+      onExit: (_) => setState(() => _hoveredIndex = null),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        transform: Matrix4.identity()..scale(isHovered ? 1.05 : 1.0),
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(assistantType: type),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  icon,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.assistant, size: 40, color: color);
-                  },
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F3460),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color, width: isHovered ? 3 : 2),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(isHovered ? 0.5 : 0.3),
+                  blurRadius: isHovered ? 20 : 10,
+                  offset: const Offset(0, 4),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: color,
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      icon,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.assistant, size: 40, color: color);
+                      },
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: color, size: 20),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios, color: color, size: 20),
-          ],
+          ),
         ),
       ),
     );
@@ -218,24 +238,17 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
   String? _selectedImagePath;
   String? _selectedFilePath;
+  String? _generatedImageUrl;
+  String? _generatedVideoUrl;
 
   @override
   void initState() {
     super.initState();
-    _messages.add(Message(
-      text: _getWelcomeMessage(),
-      isUser: false,
-    ));
-  }
-
-  String _getWelcomeMessage() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return '🦎 Salama! Izaho i Kotokely!\n\n💬 Afaka manoratra, mamaky fichier, ary mandray valiny aho.\n\nInona no tianao hotadiavina?';
-      case AssistantType.balita:
-        return '🎨 Salama! Izaho i Balita!\n\n🖼️ Mamorona sary aho avy amin\'ny description-nao.\n\nLazao amiko ny sary tianao ho hitanao!';
-      case AssistantType.ketaka:
-        return '🎬 Salama! Izaho i Ketaka!\n\n📹 Mamorona video fohy aho (2-4s).\n\nLazao amiko ny video tianao ho hitanao!';
+    if (widget.assistantType == AssistantType.kotokely) {
+      _messages.add(Message(
+        text: '🦎 Salama! Izaho i Kotokely!\n\n💬 Afaka manoratra, mamaky fichier, ary mandray valiny aho.\n\nInona no tianao hotadiavina?',
+        isUser: false,
+      ));
     }
   }
 
@@ -280,17 +293,23 @@ class _ChatScreenState extends State<ChatScreen> {
     final userMessage = _messageController.text.trim();
     
     setState(() {
-      _messages.add(Message(
-        text: userMessage,
-        isUser: true,
-        imageUrl: _selectedImagePath,
-        fileName: _selectedFilePath?.split('/').last,
-      ));
+      if (widget.assistantType == AssistantType.kotokely) {
+        _messages.add(Message(
+          text: userMessage,
+          isUser: true,
+          imageUrl: _selectedImagePath,
+          fileName: _selectedFilePath?.split('/').last,
+        ));
+      }
       _isLoading = true;
+      _generatedImageUrl = null;
+      _generatedVideoUrl = null;
     });
 
     _messageController.clear();
-    _scrollToBottom();
+    if (widget.assistantType == AssistantType.kotokely) {
+      _scrollToBottom();
+    }
 
     try {
       String? imageBase64;
@@ -305,12 +324,11 @@ class _ChatScreenState extends State<ChatScreen> {
         fileContent = await File(_selectedFilePath!).readAsString();
       }
 
-      // ⭐ OVANA ITY: Nanampy Authorization header
       final response = await http.post(
         Uri.parse(SupabaseConfig.edgeFunctionUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}', // ⭐ ITY NO NANAMPY!
+          'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
         },
         body: jsonEncode({
           'message': userMessage,
@@ -327,12 +345,16 @@ class _ChatScreenState extends State<ChatScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _messages.add(Message(
-            text: data['response'] ?? 'Tsy nahita valiny',
-            isUser: false,
-            imageUrl: data['imageUrl'],
-            videoUrl: data['videoUrl'],
-          ));
+          if (widget.assistantType == AssistantType.kotokely) {
+            _messages.add(Message(
+              text: data['response'] ?? 'Tsy nahita valiny',
+              isUser: false,
+            ));
+          } else if (widget.assistantType == AssistantType.balita) {
+            _generatedImageUrl = data['imageUrl'];
+          } else {
+            _generatedVideoUrl = data['videoUrl'];
+          }
           _isLoading = false;
           _selectedImagePath = null;
           _selectedFilePath = null;
@@ -342,17 +364,25 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       setState(() {
-        _messages.add(Message(
-          text: '❌ Nisy olana: $e',
-          isUser: false,
-        ));
+        if (widget.assistantType == AssistantType.kotokely) {
+          _messages.add(Message(
+            text: '❌ Nisy olana: $e',
+            isUser: false,
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ Nisy olana: $e')),
+          );
+        }
         _isLoading = false;
         _selectedImagePath = null;
         _selectedFilePath = null;
       });
     }
 
-    _scrollToBottom();
+    if (widget.assistantType == AssistantType.kotokely) {
+      _scrollToBottom();
+    }
   }
 
   Future<void> _pickImage() async {
@@ -380,20 +410,47 @@ class _ChatScreenState extends State<ChatScreen> {
   void _copyText(String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Text nadika tany clipboard')),
+      const SnackBar(
+        content: Text('✅ Text nadika tany clipboard'),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
-  Future<void> _downloadImage(String imageUrl) async {
+  Future<void> _downloadMedia(String url, String type) async {
     try {
-      final response = await http.get(Uri.parse(imageUrl));
-      final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/image_${DateTime.now().millisecondsSinceEpoch}.png';
+      final status = await Permission.storage.request();
+      
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Mila permission hanindrana')),
+        );
+        return;
+      }
+
+      final response = await http.get(Uri.parse(url));
+      
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+      
+      final ext = type == 'image' ? 'png' : 'mp4';
+      final fileName = '${type}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final filePath = '${directory!.path}/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Sary voatahiry: $filePath')),
+        SnackBar(
+          content: Text('✅ Voatahiry: $filePath'),
+          duration: const Duration(seconds: 3),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -402,31 +459,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _shareImage(String imageUrl) async {
+  Future<void> _shareMedia(String url, String type) async {
     try {
-      final response = await http.get(Uri.parse(imageUrl));
+      final response = await http.get(Uri.parse(url));
       final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/share_image.png';
+      final ext = type == 'image' ? 'png' : 'mp4';
+      final filePath = '${directory.path}/share_$type.$ext';
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
       
-      await Share.shareXFiles([XFile(filePath)], text: 'Sary avy amin\'ny Balita AI');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Tsy afaka nizara: $e')),
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: type == 'image' ? 'Sary avy amin\'ny Balita AI' : 'Video avy amin\'ny Ketaka AI',
       );
-    }
-  }
-
-  Future<void> _shareVideo(String videoUrl) async {
-    try {
-      final response = await http.get(Uri.parse(videoUrl));
-      final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/share_video.mp4';
-      final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
-      
-      await Share.shareXFiles([XFile(filePath)], text: 'Video avy amin\'ny Ketaka AI');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Tsy afaka nizara: $e')),
@@ -448,6 +493,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.assistantType == AssistantType.balita) {
+      return _buildBalitaScreen();
+    } else if (widget.assistantType == AssistantType.ketaka) {
+      return _buildKetakaScreen();
+    } else {
+      return _buildKotokelyScreen();
+    }
+  }
+
+  Widget _buildKotokelyScreen() {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -503,7 +558,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   CircularProgressIndicator(color: _getAssistantColor()),
                   const SizedBox(width: 12),
-                  Text(_getLoadingText()),
+                  const Text('Mandinika...'),
                 ],
               ),
             ),
@@ -561,30 +616,29 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (widget.assistantType == AssistantType.kotokely) ...[
-                  IconButton(
-                    icon: const Icon(Icons.image, color: Colors.blue),
-                    onPressed: _pickImage,
-                    tooltip: 'Upload sary',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.green),
-                    onPressed: _pickFile,
-                    tooltip: 'Upload fichier',
-                  ),
-                ],
+                IconButton(
+                  icon: const Icon(Icons.image, color: Colors.blue),
+                  onPressed: _pickImage,
+                  tooltip: 'Upload sary',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.attach_file, color: Colors.green),
+                  onPressed: _pickFile,
+                  tooltip: 'Upload fichier',
+                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: _getHintText(),
+                    decoration: const InputDecoration(
+                      hintText: 'Soraty eto ny hafatrao...',
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     maxLines: null,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
+                    minLines: 1,
+                    textInputAction: TextInputAction.newline,
                   ),
                 ),
                 IconButton(
@@ -599,26 +653,329 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _getHintText() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return 'Soraty eto ny hafatrao...';
-      case AssistantType.balita:
-        return 'Lazao ny sary tianao (ex: sunset beach)...';
-      case AssistantType.ketaka:
-        return 'Lazao ny video tianao (ex: cat playing)...';
-    }
+  Widget _buildBalitaScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  _getAssistantIcon(),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.assistant, color: _getAssistantColor());
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('Balita', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        elevation: 0,
+        backgroundColor: const Color(0xFF16213E),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: _generatedImageUrl != null
+                  ? Stack(
+                      children: [
+                        InteractiveViewer(
+                          child: Image.network(
+                            _generatedImageUrl!,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return const Center(child: CircularProgressIndicator());
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Text('❌ Tsy afaka nampiseho ny sary'),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.download),
+                                label: const Text('Download'),
+                                onPressed: () => _downloadMedia(_generatedImageUrl!, 'image'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.share),
+                                label: const Text('Share'),
+                                onPressed: () => _shareMedia(_generatedImageUrl!, 'image'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : _isLoading
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: _getAssistantColor()),
+                            const SizedBox(height: 16),
+                            const Text('Mamorona sary...', style: TextStyle(fontSize: 18)),
+                          ],
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image, size: 100, color: _getAssistantColor()),
+                              const SizedBox(height: 16),
+                              const Text(
+                                '🎨 Salama! Izaho i Balita!',
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Mamorona sary aho avy amin\'ny description-nao.\n\nLazao amiko ny sary tianao ho hitanao!',
+                                style: TextStyle(fontSize: 16, color: Colors.white70),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16213E),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: const InputDecoration(
+                      hintText: 'Lazao ny sary tianao (ex: sunset beach)...',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    maxLines: null,
+                    minLines: 1,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.auto_awesome, color: _getAssistantColor(), size: 32),
+                  onPressed: _sendMessage,
+                  tooltip: 'Mamorona sary',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _getLoadingText() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return 'Mandinika...';
-      case AssistantType.balita:
-        return 'Mamorona sary...';
-      case AssistantType.ketaka:
-        return 'Mamorona video...';
-    }
+  Widget _buildKetakaScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  _getAssistantIcon(),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.assistant, color: _getAssistantColor());
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('Ketaka', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        elevation: 0,
+        backgroundColor: const Color(0xFF16213E),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: _generatedVideoUrl != null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _getAssistantColor(), width: 3),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.video_library, size: 100, color: _getAssistantColor()),
+                              const SizedBox(height: 16),
+                              const Text(
+                                '🎬 Video vita!',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.download),
+                              label: const Text('Download'),
+                              onPressed: () => _downloadMedia(_generatedVideoUrl!, 'video'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.share),
+                              label: const Text('Share'),
+                              onPressed: () => _shareMedia(_generatedVideoUrl!, 'video'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : _isLoading
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: _getAssistantColor()),
+                            const SizedBox(height: 16),
+                            const Text('Mamorona video...', style: TextStyle(fontSize: 18)),
+                          ],
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.video_library, size: 100, color: _getAssistantColor()),
+                              const SizedBox(height: 16),
+                              const Text(
+                                '🎬 Salama! Izaho i Ketaka!',
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Mamorona video fohy aho (2-4s).\n\nLazao amiko ny video tianao ho hitanao!',
+                                style: TextStyle(fontSize: 16, color: Colors.white70),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16213E),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: const InputDecoration(
+                      hintText: 'Lazao ny video tianao (ex: cat playing)...',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    maxLines: null,
+                    minLines: 1,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.movie_creation, color: _getAssistantColor(), size: 32),
+                  onPressed: _sendMessage,
+                  tooltip: 'Mamorona video',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMessageBubble(Message message) {
@@ -646,108 +1003,16 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (message.imageUrl != null)
+            if (message.imageUrl != null && message.isUser)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: message.imageUrl!.startsWith('http')
-                        ? Image.network(
-                            message.imageUrl!,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                height: 200,
-                                alignment: Alignment.center,
-                                child: const CircularProgressIndicator(),
-                              );
-                            },
-                          )
-                        : Image.file(
-                            File(message.imageUrl!),
-                            fit: BoxFit.cover,
-                          ),
-                    ),
-                    if (!message.isUser && message.imageUrl!.startsWith('http'))
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.download, color: Colors.white),
-                              onPressed: () => _downloadImage(message.imageUrl!),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: const Icon(Icons.share, color: Colors.white),
-                              onPressed: () => _shareImage(message.imageUrl!),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            if (message.videoUrl != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _getAssistantColor(), width: 2),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(Icons.video_library, size: 48, color: _getAssistantColor()),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '🎬 Video vita!',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.download),
-                          label: const Text('Download'),
-                          onPressed: () => _downloadImage(message.videoUrl!),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _getAssistantColor(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.share),
-                          label: const Text('Share'),
-                          onPressed: () => _shareVideo(message.videoUrl!),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _getAssistantColor(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(message.imageUrl!),
+                    height: 150,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             if (message.fileName != null)
