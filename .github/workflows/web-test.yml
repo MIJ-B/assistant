@@ -31,6 +31,9 @@ jobs:
         flutter-version: '3.24.0'
         channel: 'stable'
     
+    - name: 🚫 Disable analytics
+      run: flutter config --no-analytics
+    
     - name: 📦 Get dependencies
       run: flutter pub get
     
