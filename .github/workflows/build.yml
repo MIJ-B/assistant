@@ -1,62 +1,140 @@
-name: Web Test & Deploy to GitHub Pages
+name: Build Kotokely APK
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch:  # Manual trigger
 
 jobs:
-  test-and-deploy:
+  build:
+    name: Build APK
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-
+    
     steps:
-    - name: 📥 Checkout code
+    # 1. Checkout code
+    - name: 📥 Checkout repository
       uses: actions/checkout@v4
-
+    
+    # 2. Setup Java
     - name: ☕ Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
-
+    
+    # 3. Setup Flutter
     - name: 🐦 Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'
+        flutter-version: '3.24.5'
         channel: 'stable'
-
-    - name: 🚫 Disable analytics
-      run: flutter config --no-analytics
-
-    - name: 🌐 Enable Flutter Web
-      run: flutter config --enable-web
-
-    - name: 🎯 Create web platform files
-      run: flutter create . --platforms=web
-
+        cache: true
+    
+    # 4. Verify Flutter installation
+    - name: ✅ Verify Flutter
+      run: |
+        flutter --version
+        flutter doctor -v
+    
+    # 5. Get dependencies
     - name: 📦 Get dependencies
       run: flutter pub get
-
-    - name: 🔍 Analyze code
-      run: flutter analyze --no-fatal-infos
-      continue-on-error: true
-
-    - name: 🏗️ Build web (release)
-      run: flutter build web --release --web-renderer html --base-href /assistant/
-
-    - name: 📝 Add .nojekyll file
-      run: touch build/web/.nojekyll
-
-    - name: 🚀 Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
+    
+    # 6. Generate Android icons
+    - name: 🎨 Generate Android Icons
+      run: |
+        echo "Generating launcher icons..."
+        flutter pub run flutter_launcher_icons
+    
+    # 7. Build APK
+    - name: 🔨 Build APK
+      run: |
+        flutter build apk --release --split-per-abi
+        
+    # 8. Rename APKs
+    - name: 📝 Rename APKs
+      run: |
+        cd build/app/outputs/flutter-apk
+        mv app-armeabi-v7a-release.apk kotokely-arm32.apk || true
+        mv app-arm64-v8a-release.apk kotokely-arm64.apk || true
+        mv app-x86_64-release.apk kotokely-x86_64.apk || true
+        # Build universal APK
+        cd ../../../../
+        flutter build apk --release
+        cd build/app/outputs/flutter-apk
+        mv app-release.apk kotokely-universal.apk
+        ls -lh
+    
+    # 9. Get version from pubspec.yaml
+    - name: 📌 Get version
+      id: version
+      run: |
+        VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    
+    # 10. Upload ARM32 APK
+    - name: 📤 Upload ARM32 APK
+      uses: actions/upload-artifact@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build/web
-        force_orphan: true
+        name: kotokely-arm32-v${{ steps.version.outputs.version }}
+        path: build/app/outputs/flutter-apk/kotokely-arm32.apk
+        if-no-files-found: warn
+    
+    # 11. Upload ARM64 APK
+    - name: 📤 Upload ARM64 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: kotokely-arm64-v${{ steps.version.outputs.version }}
+        path: build/app/outputs/flutter-apk/kotokely-arm64.apk
+    
+    # 12. Upload x86_64 APK
+    - name: 📤 Upload x86_64 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: kotokely-x86_64-v${{ steps.version.outputs.version }}
+        path: build/app/outputs/flutter-apk/kotokely-x86_64.apk
+        if-no-files-found: warn
+    
+    # 13. Upload Universal APK
+    - name: 📤 Upload Universal APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: kotokely-universal-v${{ steps.version.outputs.version }}
+        path: build/app/outputs/flutter-apk/kotokely-universal.apk
+    
+    # 14. Create Release (optional - only on tag)
+    - name: 🚀 Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build/app/outputs/flutter-apk/kotokely-arm32.apk
+          build/app/outputs/flutter-apk/kotokely-arm64.apk
+          build/app/outputs/flutter-apk/kotokely-x86_64.apk
+          build/app/outputs/flutter-apk/kotokely-universal.apk
+        name: Kotokely AI v${{ steps.version.outputs.version }}
+        body: |
+          ## 🦎 Kotokely AI v${{ steps.version.outputs.version }}
+          
+          ### 📥 Downloads:
+          - **kotokely-universal.apk** - Ho an'ny telefaona rehetra (lehibe kokoa)
+          - **kotokely-arm64.apk** - Ho an'ny telefaona maoderina (64-bit) - Recommended
+          - **kotokely-arm32.apk** - Ho an'ny telefaona taloha (32-bit)
+          - **kotokely-x86_64.apk** - Ho an'ny emulators
+          
+          ### ✨ Features:
+          - 💬 Kotokely - Text Chat & File Upload
+          - 🎨 Balita - Image Generation
+          - 🎬 Ketaka - Video Generation
+          
+          ### 📱 Installation:
+          1. Download ny APK mifanaraka amin'ny telefaonao
+          2. Enable "Install from Unknown Sources"
+          3. Install ny APK
+          
+          Built with ❤️ by Kotokely AI Team
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
