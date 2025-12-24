@@ -1,517 +1,62 @@
-name: Build Kotokely APK
+name: Web Test & Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  build:
-    name: Build APK
+  test-and-deploy:
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
-    
-    - name: ☕ Setup Java 17
+
+    - name: ☕ Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
-    
+
     - name: 🐦 Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.5'
+        flutter-version: '3.24.0'
         channel: 'stable'
-        cache: true
-    
-    - name: ✅ Verify Flutter
-      run: |
-        flutter --version
-        flutter doctor -v
-    
+
+    - name: 🚫 Disable analytics
+      run: flutter config --no-analytics
+
+    - name: 🌐 Enable Flutter Web
+      run: flutter config --enable-web
+
+    - name: 🎯 Create web platform files
+      run: flutter create . --platforms=web
+
     - name: 📦 Get dependencies
       run: flutter pub get
-    
-    - name: 🏗️ Generate Android Project
-      run: |
-        echo "🔧 Generating Android project..."
-        
-        if [ -d "android" ]; then
-          rm -rf android
-        fi
-        
-        flutter create --platforms=android --org=com.kotokely --project-name=kotokely_ai .
-        
-        echo "✅ Android project generated"
-    
-    - name: ⚙️ Configure Gradle 8.0
-      run: |
-        echo "⚙️ Configuring Gradle 8.0..."
-        
-        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-all.zip
-        EOF
-        
-        cat > android/gradle.properties << 'EOF'
-        org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
-        android.useAndroidX=true
-        android.enableJetifier=true
-        android.enableR8.fullMode=false
-        org.gradle.parallel=true
-        org.gradle.caching=true
-        EOF
-        
-        cat > android/build.gradle << 'EOF'
-        buildscript {
-            ext.kotlin_version = '1.9.10'
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-                classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-            }
-        }
-        
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        
-        rootProject.buildDir = '../build'
-        subprojects {
-            project.buildDir = "${rootProject.buildDir}/${project.name}"
-        }
-        subprojects {
-            project.evaluationDependsOn(':app')
-        }
-        
-        tasks.register("clean", Delete) {
-            delete rootProject.buildDir
-        }
-        EOF
-        
-        cat > android/app/build.gradle << 'EOF'
-        def localProperties = new Properties()
-        def localPropertiesFile = rootProject.file('local.properties')
-        if (localPropertiesFile.exists()) {
-            localPropertiesFile.withReader('UTF-8') { reader ->
-                localProperties.load(reader)
-            }
-        }
-        
-        def flutterRoot = localProperties.getProperty('flutter.sdk')
-        if (flutterRoot == null) {
-            throw new GradleException("Flutter SDK not found.")
-        }
-        
-        def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-        if (flutterVersionCode == null) {
-            flutterVersionCode = '1'
-        }
-        
-        def flutterVersionName = localProperties.getProperty('flutter.versionName')
-        if (flutterVersionName == null) {
-            flutterVersionName = '1.0'
-        }
-        
-        apply plugin: 'com.android.application'
-        apply plugin: 'kotlin-android'
-        apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-        
-        android {
-            namespace "com.kotokely.kotokely_ai"
-            compileSdk 34
-            ndkVersion flutter.ndkVersion
-        
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-        
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-        
-            sourceSets {
-                main.java.srcDirs += 'src/main/kotlin'
-            }
-        
-            defaultConfig {
-                applicationId "com.kotokely.kotokely_ai"
-                minSdk 21
-                targetSdk 34
-                versionCode flutterVersionCode.toInteger()
-                versionName flutterVersionName
-                multiDexEnabled true
-            }
-        
-            signingConfigs {
-                release {
-                    storeFile file('debug.keystore')
-                    storePassword 'android'
-                    keyAlias 'androiddebugkey'
-                    keyPassword 'android'
-                }
-            }
-        
-            buildTypes {
-                release {
-                    signingConfig signingConfigs.release
-                    minifyEnabled false
-                    shrinkResources false
-                }
-            }
-        
-            lint {
-                disable 'InvalidPackage'
-                checkReleaseBuilds false
-            }
-        }
-        
-        flutter {
-            source '../..'
-        }
-        
-        dependencies {
-            implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-            implementation 'androidx.multidex:multidex:2.0.1'
-        }
-        EOF
-        
-        keytool -genkey -v -keystore android/app/debug.keystore \
-          -storepass android -alias androiddebugkey -keypass android \
-          -keyalg RSA -keysize 2048 -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
-        
-        echo "✅ Gradle configured"
-    
-    - name: ⚙️ Configure AndroidManifest
-      run: |
-        cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            
-            <uses-permission android:name="android.permission.INTERNET" />
-            <uses-permission android:name="android.permission.CAMERA" />
-            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-            <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-            
-            <uses-feature android:name="android.hardware.camera" android:required="false" />
-        
-            <application
-                android:label="Kotokely AI"
-                android:name="${applicationName}"
-                android:icon="@mipmap/ic_launcher"
-                android:usesCleartextTraffic="true">
-                
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true"
-                    android:launchMode="singleTop"
-                    android:theme="@style/LaunchTheme"
-                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                    android:hardwareAccelerated="true"
-                    android:windowSoftInputMode="adjustResize">
-                    
-                    <meta-data
-                      android:name="io.flutter.embedding.android.NormalTheme"
-                      android:resource="@style/NormalTheme" />
-                    
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN"/>
-                        <category android:name="android.intent.category.LAUNCHER"/>
-                    </intent-filter>
-                </activity>
-                
-                <meta-data
-                    android:name="flutterEmbedding"
-                    android:value="2" />
-            </application>
-            
-            <queries>
-                <intent>
-                    <action android:name="android.intent.action.VIEW" />
-                    <data android:scheme="https" />
-                </intent>
-            </queries>
-        </manifest>
-        EOF
-    
-    - name: 🔧 Fix ALL Plugins for AGP 8.x + Add Source Files
-      run: |
-        echo "🔧 Fixing all plugins for AGP 8.x compatibility..."
-        
-        # Fix wakelock_plus
-        for dir in "$HOME/.pub-cache/hosted/pub.dev"/wakelock_plus-*; do
-            if [ -d "$dir/android" ]; then
-                echo "  Fixing wakelock_plus..."
-                
-                cat > "$dir/android/build.gradle" << 'EOF'
-        group 'dev.fluttercommunity.plus.wakelock'
-        version '1.0'
-        
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-            }
-        }
-        
-        rootProject.allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        
-        apply plugin: 'com.android.library'
-        
-        android {
-            namespace 'dev.fluttercommunity.plus.wakelock'
-            compileSdk 34
-            
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-        
-            defaultConfig {
-                minSdk 21
-            }
-            
-            sourceSets {
-                main.java.srcDirs += 'src/main/java'
-            }
-        }
-        
-        dependencies {
-            implementation 'androidx.annotation:annotation:1.7.0'
-        }
-        EOF
-                
-                mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock"
-                cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/wakelock/WakelockPlusPlugin.java" << 'EOF'
-        package dev.fluttercommunity.plus.wakelock;
-        
-        import androidx.annotation.NonNull;
-        import io.flutter.embedding.engine.plugins.FlutterPlugin;
-        import io.flutter.plugin.common.MethodCall;
-        import io.flutter.plugin.common.MethodChannel;
-        import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-        import io.flutter.plugin.common.MethodChannel.Result;
-        
-        public class WakelockPlusPlugin implements FlutterPlugin, MethodCallHandler {
-          private MethodChannel channel;
-        
-          @Override
-          public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
-            channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "wakelock_plus");
-            channel.setMethodCallHandler(this);
-          }
-        
-          @Override
-          public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-            result.success(null);
-          }
-        
-          @Override
-          public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-            channel.setMethodCallHandler(null);
-          }
-        }
-        EOF
-                echo "  ✓ wakelock_plus"
-            fi
-        done
-        
-        # Fix package_info_plus
-        for dir in "$HOME/.pub-cache/hosted/pub.dev"/package_info_plus-*; do
-            if [ -d "$dir/android" ]; then
-                echo "  Fixing package_info_plus..."
-                
-                cat > "$dir/android/build.gradle" << 'EOF'
-        group 'dev.fluttercommunity.plus.packageinfo'
-        version '1.0'
-        
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-            }
-        }
-        
-        rootProject.allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        
-        apply plugin: 'com.android.library'
-        
-        android {
-            namespace 'dev.fluttercommunity.plus.packageinfo'
-            compileSdk 34
-            
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-        
-            defaultConfig {
-                minSdk 21
-            }
-            
-            sourceSets {
-                main.java.srcDirs += 'src/main/java'
-            }
-        }
-        
-        dependencies {
-            implementation 'androidx.annotation:annotation:1.7.0'
-        }
-        EOF
-                
-                mkdir -p "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo"
-                cat > "$dir/android/src/main/java/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.java" << 'EOF'
-        package dev.fluttercommunity.plus.packageinfo;
-        
-        import androidx.annotation.NonNull;
-        import io.flutter.embedding.engine.plugins.FlutterPlugin;
-        import io.flutter.plugin.common.MethodCall;
-        import io.flutter.plugin.common.MethodChannel;
-        import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-        import io.flutter.plugin.common.MethodChannel.Result;
-        
-        public class PackageInfoPlugin implements FlutterPlugin, MethodCallHandler {
-          private MethodChannel channel;
-        
-          @Override
-          public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
-            channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "package_info_plus");
-            channel.setMethodCallHandler(this);
-          }
-        
-          @Override
-          public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-            result.success(null);
-          }
-        
-          @Override
-          public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-            channel.setMethodCallHandler(null);
-          }
-        }
-        EOF
-                echo "  ✓ package_info_plus"
-            fi
-        done
-        
-        # Fix flutter_plugin_android_lifecycle
-        for dir in "$HOME/.pub-cache/hosted/pub.dev"/flutter_plugin_android_lifecycle-*; do
-            if [ -d "$dir/android" ]; then
-                cat > "$dir/android/build.gradle" << 'EOF'
-        group 'io.flutter.plugins'
-        version '1.0'
-        
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-            }
-        }
-        
-        rootProject.allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        
-        apply plugin: 'com.android.library'
-        
-        android {
-            namespace 'io.flutter.plugins.flutter_plugin_android_lifecycle'
-            compileSdk 34
-        
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-        
-            defaultConfig {
-                minSdk 21
-            }
-        }
-        
-        dependencies {
-            implementation 'androidx.annotation:annotation:1.7.0'
-            implementation 'androidx.lifecycle:lifecycle-common:2.6.1'
-        }
-        EOF
-                echo "  ✓ flutter_plugin_android_lifecycle"
-            fi
-        done
-        
-        echo "✅ All plugins fixed with source files"
-    
-    - name: 🧹 Clean Build
-      run: |
-        flutter clean
-        flutter pub get
-    
-    - name: 🔨 Build APKs
-      run: |
-        echo "🔨 Building APKs..."
-        flutter build apk --release --split-per-abi
-        flutter build apk --release
-    
-    - name: 📝 Organize APKs
-      run: |
-        cd build/app/outputs/flutter-apk
-        [ -f app-armeabi-v7a-release.apk ] && mv app-armeabi-v7a-release.apk kotokely-arm32.apk
-        [ -f app-arm64-v8a-release.apk ] && mv app-arm64-v8a-release.apk kotokely-arm64.apk
-        [ -f app-x86_64-release.apk ] && mv app-x86_64-release.apk kotokely-x86_64.apk
-        [ -f app-release.apk ] && mv app-release.apk kotokely-universal.apk
-        ls -lh *.apk
-    
-    - name: 📌 Get Version
-      id: version
-      run: |
-        VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '\r')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: 📤 Upload ARM64 APK
-      uses: actions/upload-artifact@v4
+
+    - name: 🔍 Analyze code
+      run: flutter analyze --no-fatal-infos
+      continue-on-error: true
+
+    - name: 🏗️ Build web (release)
+      run: flutter build web --release --web-renderer html --base-href /assistant/
+
+    - name: 📝 Add .nojekyll file
+      run: touch build/web/.nojekyll
+
+    - name: 🚀 Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
       with:
-        name: kotokely-arm64-v${{ steps.version.outputs.version }}
-        path: build/app/outputs/flutter-apk/kotokely-arm64.apk
-    
-    - name: 📤 Upload Universal APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: kotokely-universal-v${{ steps.version.outputs.version }}
-        path: build/app/outputs/flutter-apk/kotokely-universal.apk
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./build/web
+        force_orphan: true
