@@ -4,15 +4,10 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 
 void main() {
-  runApp(const KotokelyApp());
+  runApp(const PhilosophePascalApp());
 }
 
 class SupabaseConfig {
@@ -21,13 +16,13 @@ class SupabaseConfig {
   static String get edgeFunctionUrl => '$supabaseUrl/functions/v1/kotokely-ai';
 }
 
-class KotokelyApp extends StatelessWidget {
-  const KotokelyApp({Key? key}) : super(key: key);
+class PhilosophePascalApp extends StatelessWidget {
+  const PhilosophePascalApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kotokely AI',
+      title: 'Philosophe Pascal',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.purple,
@@ -38,7 +33,7 @@ class KotokelyApp extends StatelessWidget {
           secondary: Color(0xFF7B2CBF),
         ),
       ),
-      home: const AssistantSelector(),
+      home: const ChatScreen(),
     );
   }
 }
@@ -48,184 +43,17 @@ class Message {
   final bool isUser;
   final String? imageUrl;
   final String? fileName;
-  final String? videoUrl;
   
   Message({
     required this.text,
     required this.isUser,
     this.imageUrl,
     this.fileName,
-    this.videoUrl,
   });
 }
 
-enum AssistantType {
-  kotokely,
-  balita,
-  ketaka,
-}
-
-class AssistantSelector extends StatefulWidget {
-  const AssistantSelector({Key? key}) : super(key: key);
-
-  @override
-  State<AssistantSelector> createState() => _AssistantSelectorState();
-}
-
-class _AssistantSelectorState extends State<AssistantSelector> {
-  int? _hoveredIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Safidio ny Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: const Color(0xFF16213E),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildAssistantCard(
-                context,
-                index: 0,
-                type: AssistantType.kotokely,
-                title: 'Kotokely',
-                subtitle: 'Text Chat & File Upload',
-                icon: 'https://i.ibb.co/nM8LCgkb/php-Prk-X86.png',
-                color: Colors.blue,
-              ),
-              const SizedBox(height: 20),
-              _buildAssistantCard(
-                context,
-                index: 1,
-                type: AssistantType.balita,
-                title: 'Balita',
-                subtitle: 'Image Generation',
-                icon: 'https://i.ibb.co/JWmgHf5F/phpi-JSe61-1.png',
-                color: Colors.green,
-              ),
-              const SizedBox(height: 20),
-              _buildAssistantCard(
-                context,
-                index: 2,
-                type: AssistantType.ketaka,
-                title: 'Ketaka',
-                subtitle: 'Video Generation',
-                icon: 'https://i.ibb.co/LXdmxHPx/phpd-Qio-KR.png',
-                color: Colors.orange,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAssistantCard(
-    BuildContext context, {
-    required int index,
-    required AssistantType type,
-    required String title,
-    required String subtitle,
-    required String icon,
-    required Color color,
-  }) {
-    final isHovered = _hoveredIndex == index;
-    
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredIndex = index),
-      onExit: (_) => setState(() => _hoveredIndex = null),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        transform: Matrix4.identity()..scale(isHovered ? 1.05 : 1.0),
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChatScreen(assistantType: type),
-              ),
-            );
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F3460),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color, width: isHovered ? 3 : 2),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(isHovered ? 0.5 : 0.3),
-                  blurRadius: isHovered ? 20 : 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      icon,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.assistant, size: 40, color: color);
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: color, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class ChatScreen extends StatefulWidget {
-  final AssistantType assistantType;
-  
-  const ChatScreen({Key? key, required this.assistantType}) : super(key: key);
+  const ChatScreen({Key? key}) : super(key: key);
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -240,51 +68,14 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
   String? _selectedImagePath;
   String? _selectedFilePath;
-  String? _generatedImageUrl;
-  String? _generatedVideoUrl;
 
   @override
   void initState() {
     super.initState();
-    if (widget.assistantType == AssistantType.kotokely) {
-      _messages.add(Message(
-        text: '🦎 Salama! Izaho i Kotokely!\n\n💬 Afaka manoratra, mamaky fichier, ary mandray valiny aho.\n\nInona no tianao hotadiavina?',
-        isUser: false,
-      ));
-    }
-  }
-
-  String _getAssistantName() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return 'Kotokely';
-      case AssistantType.balita:
-        return 'Balita';
-      case AssistantType.ketaka:
-        return 'Ketaka';
-    }
-  }
-
-  String _getAssistantIcon() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return 'https://i.ibb.co/nM8LCgkb/php-Prk-X86.png';
-      case AssistantType.balita:
-        return 'https://i.ibb.co/JWmgHf5F/phpi-JSe61-1.png';
-      case AssistantType.ketaka:
-        return 'https://i.ibb.co/LXdmxHPx/phpd-Qio-KR.png';
-    }
-  }
-
-  Color _getAssistantColor() {
-    switch (widget.assistantType) {
-      case AssistantType.kotokely:
-        return Colors.blue;
-      case AssistantType.balita:
-        return Colors.green;
-      case AssistantType.ketaka:
-        return Colors.orange;
-    }
+    _messages.add(Message(
+      text: '🧠 Salama! Izaho i Philosophe Pascal!\n\n💭 Afaka mifanakalo hevitra aminao aho momba ny fiainana, ny filozofia, ary ny fanontaniana lalina.\n\nInona no tianao iresahana?',
+      isUser: false,
+    ));
   }
 
   Future<void> _sendMessage() async {
@@ -295,23 +86,17 @@ class _ChatScreenState extends State<ChatScreen> {
     final userMessage = _messageController.text.trim();
     
     setState(() {
-      if (widget.assistantType == AssistantType.kotokely) {
-        _messages.add(Message(
-          text: userMessage,
-          isUser: true,
-          imageUrl: _selectedImagePath,
-          fileName: _selectedFilePath?.split('/').last,
-        ));
-      }
+      _messages.add(Message(
+        text: userMessage,
+        isUser: true,
+        imageUrl: _selectedImagePath,
+        fileName: _selectedFilePath?.split('/').last,
+      ));
       _isLoading = true;
-      _generatedImageUrl = null;
-      _generatedVideoUrl = null;
     });
 
     _messageController.clear();
-    if (widget.assistantType == AssistantType.kotokely) {
-      _scrollToBottom();
-    }
+    _scrollToBottom();
 
     try {
       String? imageBase64;
@@ -336,27 +121,17 @@ class _ChatScreenState extends State<ChatScreen> {
           'message': userMessage,
           'image': imageBase64,
           'file': fileContent,
-          'mode': widget.assistantType == AssistantType.kotokely
-              ? 'chat'
-              : widget.assistantType == AssistantType.balita
-                  ? 'imageGen'
-                  : 'videoGen',
+          'mode': 'chat',
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          if (widget.assistantType == AssistantType.kotokely) {
-            _messages.add(Message(
-              text: data['response'] ?? 'Tsy nahita valiny',
-              isUser: false,
-            ));
-          } else if (widget.assistantType == AssistantType.balita) {
-            _generatedImageUrl = data['imageUrl'];
-          } else {
-            _generatedVideoUrl = data['videoUrl'];
-          }
+          _messages.add(Message(
+            text: data['response'] ?? 'Tsy nahita valiny',
+            isUser: false,
+          ));
           _isLoading = false;
           _selectedImagePath = null;
           _selectedFilePath = null;
@@ -366,25 +141,17 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       setState(() {
-        if (widget.assistantType == AssistantType.kotokely) {
-          _messages.add(Message(
-            text: '❌ Nisy olana: $e',
-            isUser: false,
-          ));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ Nisy olana: $e')),
-          );
-        }
+        _messages.add(Message(
+          text: '❌ Nisy olana: $e',
+          isUser: false,
+        ));
         _isLoading = false;
         _selectedImagePath = null;
         _selectedFilePath = null;
       });
     }
 
-    if (widget.assistantType == AssistantType.kotokely) {
-      _scrollToBottom();
-    }
+    _scrollToBottom();
   }
 
   Future<void> _pickImage() async {
@@ -419,68 +186,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _downloadMedia(String url, String type) async {
-    try {
-      final status = await Permission.storage.request();
-      
-      if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Mila permission hanindrana')),
-        );
-        return;
-      }
-
-      final response = await http.get(Uri.parse(url));
-      
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
-        }
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-      
-      final ext = type == 'image' ? 'png' : 'mp4';
-      final fileName = '${type}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final filePath = '${directory!.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Voatahiry: $filePath'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Tsy afaka nitahiry: $e')),
-      );
-    }
-  }
-
-  Future<void> _shareMedia(String url, String type) async {
-    try {
-      final response = await http.get(Uri.parse(url));
-      final directory = await getTemporaryDirectory();
-      final ext = type == 'image' ? 'png' : 'mp4';
-      final filePath = '${directory.path}/share_$type.$ext';
-      final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
-      
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        text: type == 'image' ? 'Sary avy amin\'ny Balita AI' : 'Video avy amin\'ny Ketaka AI',
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Tsy afaka nizara: $e')),
-      );
-    }
-  }
-
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -495,27 +200,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.assistantType == AssistantType.balita) {
-      return _buildBalitaScreen();
-    } else if (widget.assistantType == AssistantType.ketaka) {
-      return _buildKetakaScreen();
-    } else {
-      return _buildKotokelyScreen();
-    }
-  }
-
-  Widget _buildKotokelyScreen() {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Row(
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -523,16 +214,16 @@ class _ChatScreenState extends State<ChatScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  _getAssistantIcon(),
+                  'https://i.ibb.co/Z1fwzS1C/IMG-20251224-104653.png',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.assistant, color: _getAssistantColor());
+                    return const Icon(Icons.psychology, color: Colors.purple);
                   },
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(_getAssistantName(), style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            const Text('Philosophe Pascal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
           ],
         ),
         elevation: 0,
@@ -557,10 +248,10 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: _getAssistantColor()),
-                  const SizedBox(width: 12),
-                  const Text('Mandinika...'),
+                children: const [
+                  CircularProgressIndicator(color: Colors.purple),
+                  SizedBox(width: 12),
+                  Text('Misaina...'),
                 ],
               ),
             ),
@@ -644,333 +335,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.send, color: _getAssistantColor(), size: 28),
+                  icon: const Icon(Icons.send, color: Colors.purple, size: 28),
                   onPressed: _sendMessage,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBalitaScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _getAssistantIcon(),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.assistant, color: _getAssistantColor());
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text('Balita', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        elevation: 0,
-        backgroundColor: const Color(0xFF16213E),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: _generatedImageUrl != null
-                  ? Stack(
-                      children: [
-                        InteractiveViewer(
-                          child: Image.network(
-                            _generatedImageUrl!,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return const Center(child: CircularProgressIndicator());
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Text('❌ Tsy afaka nampiseho ny sary'),
-                              );
-                            },
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 16,
-                          left: 16,
-                          right: 16,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.download),
-                                label: const Text('Download'),
-                                onPressed: () => _downloadMedia(_generatedImageUrl!, 'image'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.share),
-                                label: const Text('Share'),
-                                onPressed: () => _shareMedia(_generatedImageUrl!, 'image'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    )
-                  : _isLoading
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: _getAssistantColor()),
-                            const SizedBox(height: 16),
-                            const Text('Mamorona sary...', style: TextStyle(fontSize: 18)),
-                          ],
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image, size: 100, color: _getAssistantColor()),
-                              const SizedBox(height: 16),
-                              const Text(
-                                '🎨 Salama! Izaho i Balita!',
-                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Mamorona sary aho avy amin\'ny description-nao.\n\nLazao amiko ny sary tianao ho hitanao!',
-                                style: TextStyle(fontSize: 16, color: Colors.white70),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Lazao ny sary tianao (ex: sunset beach)...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    maxLines: null,
-                    minLines: 1,
-                    textInputAction: TextInputAction.newline,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.auto_awesome, color: _getAssistantColor(), size: 32),
-                  onPressed: _sendMessage,
-                  tooltip: 'Mamorona sary',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKetakaScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _getAssistantIcon(),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(Icons.assistant, color: _getAssistantColor());
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text('Ketaka', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        elevation: 0,
-        backgroundColor: const Color(0xFF16213E),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: _generatedVideoUrl != null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(32),
-                          decoration: BoxDecoration(
-                            color: Colors.black45,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _getAssistantColor(), width: 3),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(Icons.video_library, size: 100, color: _getAssistantColor()),
-                              const SizedBox(height: 16),
-                              const Text(
-                                '🎬 Video vita!',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.download),
-                              label: const Text('Download'),
-                              onPressed: () => _downloadMedia(_generatedVideoUrl!, 'video'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.share),
-                              label: const Text('Share'),
-                              onPressed: () => _shareMedia(_generatedVideoUrl!, 'video'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : _isLoading
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: _getAssistantColor()),
-                            const SizedBox(height: 16),
-                            const Text('Mamorona video...', style: TextStyle(fontSize: 18)),
-                          ],
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.video_library, size: 100, color: _getAssistantColor()),
-                              const SizedBox(height: 16),
-                              const Text(
-                                '🎬 Salama! Izaho i Ketaka!',
-                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Mamorona video fohy aho (2-4s).\n\nLazao amiko ny video tianao ho hitanao!',
-                                style: TextStyle(fontSize: 16, color: Colors.white70),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Lazao ny video tianao (ex: cat playing)...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    maxLines: null,
-                    minLines: 1,
-                    textInputAction: TextInputAction.newline,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.movie_creation, color: _getAssistantColor(), size: 32),
-                  onPressed: _sendMessage,
-                  tooltip: 'Mamorona video',
                 ),
               ],
             ),
@@ -991,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         decoration: BoxDecoration(
           color: message.isUser 
-            ? _getAssistantColor().withOpacity(0.8)
+            ? Colors.purple.withOpacity(0.8)
             : const Color(0xFF0F3460),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -1046,7 +412,7 @@ class _ChatScreenState extends State<ChatScreen> {
               message.text,
               style: const TextStyle(fontSize: 16),
             ),
-            if (!message.isUser && widget.assistantType == AssistantType.kotokely)
+            if (!message.isUser)
               Align(
                 alignment: Alignment.centerRight,
                 child: IconButton(
